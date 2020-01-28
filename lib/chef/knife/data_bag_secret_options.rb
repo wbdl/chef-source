@@ -103,7 +103,7 @@ class Chef
         if need_encrypt_flag
           if config[:encrypt]
             unless knife_config[:secret] || knife_config[:secret_file]
-              ui.fatal("No secret or secret_file specified in config, unable to encrypt item.")
+              ui.fatal("No secret or secret_file specified in config, unable to encrypt item. See https://docs.chef.io/data_bags.html for information on creating your encryption key if you have not yet done so.")
               exit(1)
             end
             return true
