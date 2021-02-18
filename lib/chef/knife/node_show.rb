@@ -18,13 +18,14 @@
 
 require_relative "../knife"
 require_relative "core/node_presenter"
-require_relative "../dist"
+require_relative "core/formatting_options"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Knife
     class NodeShow < Knife
 
-      include Knife::Core::NodeFormattingOptions
+      include Knife::Core::FormattingOptions
       include Knife::Core::MultiAttributeReturnOption
 
       deps do
@@ -42,7 +43,7 @@ class Chef
       option :environment,
         short: "-E",
         long: "--environment",
-        description: "Show only the #{Chef::Dist::PRODUCT} environment."
+        description: "Show only the #{ChefUtils::Dist::Infra::PRODUCT} environment."
 
       def run
         ui.use_presenter Knife::Core::NodePresenter

@@ -264,7 +264,7 @@ class Chef
       if found_pref
         manifest_records_by_path[found_pref]
       else
-        if segment == :files || segment == :templates
+        if %i{files templates}.include?(segment)
           error_message = "Cookbook '#{name}' (#{version}) does not contain a file at any of these locations:\n"
           error_locations = if filename.is_a?(Array)
                               filename.map { |name| "  #{File.join(segment.to_s, name)}" }
@@ -358,10 +358,10 @@ class Chef
 
         # extract the preference part from the path.
         if manifest_record_path =~ %r{(#{Regexp.escape(segment.to_s)}/[^/]+/#{Regexp.escape(dirname)})/.+$}
-            # Note the specificy_dirname includes the segment and
-            # dirname argument as above, which is what
-            # preferences_for_path returns. It could be
-            # "files/ubuntu-9.10/dirname", for example.
+          # Note the specificity_dirname includes the segment and
+          # dirname argument as above, which is what
+          # preferences_for_path returns. It could be
+          # "files/ubuntu-9.10/dirname", for example.
           specificity_dirname = $1
 
           # Record the specificity_dirname only if it's in the list of
@@ -392,7 +392,7 @@ class Chef
                                    platform, version = Chef::Platform.find_platform_and_version(node)
                                  rescue ArgumentError => e
                                    # Skip platform/version if they were not found by find_platform_and_version
-                                   if e.message =~ /Cannot find a (?:platform|version)/
+                                   if /Cannot find a (?:platform|version)/.match?(e.message)
                                      platform = "/unknown_platform/"
                                      version = "/unknown_platform_version/"
                                    else
@@ -527,7 +527,7 @@ class Chef
         cb["version"]
       end
     rescue Net::HTTPClientException => e
-      if e.to_s =~ /^404/
+      if /^404/.match?(e.to_s)
         Chef::Log.error("Cannot find a cookbook named #{cookbook_name}")
         nil
       else
@@ -566,7 +566,7 @@ class Chef
     def find_preferred_manifest_record(node, segment, filename)
       preferences = preferences_for_path(node, segment, filename)
 
-      # in order of prefernce, look for the filename in the manifest
+      # in order of preference, look for the filename in the manifest
       preferences.find { |preferred_filename| manifest_records_by_path[preferred_filename] }
     end
 
@@ -587,10 +587,7 @@ class Chef
     end
 
     def file_vendor
-      unless @file_vendor
-        @file_vendor = Chef::Cookbook::FileVendor.create_from_manifest(cookbook_manifest)
-      end
-      @file_vendor
+      @file_vendor ||= Chef::Cookbook::FileVendor.create_from_manifest(cookbook_manifest)
     end
 
   end

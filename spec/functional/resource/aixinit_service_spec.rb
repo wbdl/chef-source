@@ -1,4 +1,3 @@
-# encoding: UTF-8
 #
 # Author:: Kaustubh Deorukhkar (<kaustubh@clogeny.com>)
 # Copyright:: Copyright (c) Chef Software Inc.
@@ -18,7 +17,6 @@
 #
 
 require "spec_helper"
-require "functional/resource/base"
 require "chef/mixin/shell_out"
 require "fileutils"
 
@@ -29,14 +27,14 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
   # Platform specific validation routines.
   def service_should_be_started(file_name)
     # The existence of this file indicates that the service was started.
-    expect(File.exists?("#{Dir.tmpdir}/#{file_name}")).to be_truthy
+    expect(File.exist?("#{Dir.tmpdir}/#{file_name}")).to be_truthy
   end
 
   def service_should_be_stopped(file_name)
-    expect(File.exists?("#{Dir.tmpdir}/#{file_name}")).to be_falsey
+    expect(File.exist?("#{Dir.tmpdir}/#{file_name}")).to be_falsey
   end
 
-  def valide_symlinks(expected_output, run_level = nil, status = nil, priority = nil)
+  def valid_symlinks(expected_output, run_level = nil, status = nil, priority = nil)
     directory = []
     if priority.is_a? Hash
       priority.each do |level, o|
@@ -57,6 +55,7 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
 
   # Actual tests
   let(:new_resource) do
+    run_context = Chef::RunContext.new(Chef::Node.new, {}, Chef::EventDispatch::Dispatcher.new)
     new_resource = Chef::Resource::Service.new("chefinittest", run_context)
     new_resource.provider Chef::Provider::Service::AixInit
     new_resource.supports({ status: true, restart: true, reload: true })
@@ -69,12 +68,12 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
   end
 
   before(:all) do
-    File.delete("/etc/rc.d/init.d/chefinittest") if File.exists?("/etc/rc.d/init.d/chefinittest")
-    FileUtils.cp((File.join(File.dirname(__FILE__), "/../assets/chefinittest")).to_s, "/etc/rc.d/init.d/chefinittest")
+    File.delete("/etc/rc.d/init.d/chefinittest") if File.exist?("/etc/rc.d/init.d/chefinittest")
+    FileUtils.cp((File.join(__dir__, "/../assets/chefinittest")).to_s, "/etc/rc.d/init.d/chefinittest")
   end
 
   after(:all) do
-    File.delete("/etc/rc.d/init.d/chefinittest") if File.exists?("/etc/rc.d/init.d/chefinittest")
+    File.delete("/etc/rc.d/init.d/chefinittest") if File.exist?("/etc/rc.d/init.d/chefinittest")
   end
 
   before(:each) do
@@ -130,7 +129,7 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
     context "when the service doesn't set a priority" do
       it "creates symlink with status S" do
         new_resource.run_action(:enable)
-        valide_symlinks(["/etc/rc.d/rc2.d/Schefinittest"], 2, "S")
+        valid_symlinks(["/etc/rc.d/rc2.d/Schefinittest"], 2, "S")
       end
     end
 
@@ -141,7 +140,7 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
 
       it "creates a symlink with status S and a priority" do
         new_resource.run_action(:enable)
-        valide_symlinks(["/etc/rc.d/rc2.d/S75chefinittest"], 2, "S", 75)
+        valid_symlinks(["/etc/rc.d/rc2.d/S75chefinittest"], 2, "S", 75)
       end
     end
 
@@ -153,7 +152,7 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
 
       it "create symlink with status start (S) or stop (K) and a priority " do
         new_resource.run_action(:enable)
-        valide_symlinks(["/etc/rc.d/rc2.d/S20chefinittest", "/etc/rc.d/rc3.d/K10chefinittest"], 2, "S", new_resource.priority)
+        valid_symlinks(["/etc/rc.d/rc2.d/S20chefinittest", "/etc/rc.d/rc3.d/K10chefinittest"], 2, "S", new_resource.priority)
       end
     end
   end
@@ -166,12 +165,12 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
       end
 
       after do
-        File.delete("/etc/rc.d/rc2.d/Schefinittest") if File.exists?("/etc/rc.d/rc2.d/chefinittest")
+        File.delete("/etc/rc.d/rc2.d/Schefinittest") if File.exist?("/etc/rc.d/rc2.d/chefinittest")
       end
 
       it "creates symlink with status K" do
         new_resource.run_action(:disable)
-        valide_symlinks(["/etc/rc.d/rc2.d/Kchefinittest"], 2, "K")
+        valid_symlinks(["/etc/rc.d/rc2.d/Kchefinittest"], 2, "K")
       end
     end
 
@@ -182,12 +181,12 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
       end
 
       after do
-        File.delete("/etc/rc.d/rc2.d/Schefinittest") if File.exists?("/etc/rc.d/rc2.d/chefinittest")
+        File.delete("/etc/rc.d/rc2.d/Schefinittest") if File.exist?("/etc/rc.d/rc2.d/chefinittest")
       end
 
       it "creates a symlink with status K and a priority" do
         new_resource.run_action(:disable)
-        valide_symlinks(["/etc/rc.d/rc2.d/K25chefinittest"], 2, "K", 25)
+        valid_symlinks(["/etc/rc.d/rc2.d/K25chefinittest"], 2, "K", 25)
       end
     end
 
@@ -199,12 +198,12 @@ describe Chef::Resource::Service, :requires_root, :aix_only do
       end
 
       after do
-        File.delete("/etc/rc.d/rc2.d/Schefinittest") if File.exists?("/etc/rc.d/rc2.d/chefinittest")
+        File.delete("/etc/rc.d/rc2.d/Schefinittest") if File.exist?("/etc/rc.d/rc2.d/chefinittest")
       end
 
       it "create symlink with status stop (K) and a priority " do
         new_resource.run_action(:disable)
-        valide_symlinks(["/etc/rc.d/rc2.d/K80chefinittest"], 2, "K", 80)
+        valid_symlinks(["/etc/rc.d/rc2.d/K80chefinittest"], 2, "K", 80)
       end
     end
   end

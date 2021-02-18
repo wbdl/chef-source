@@ -16,10 +16,10 @@
 # limitations under the License.
 #
 
-require "yaml"
+autoload :YAML, "yaml"
 require_relative "../json_compat"
-require "openssl" unless defined?(OpenSSL)
-require "base64"
+autoload :OpenSSL, "openssl"
+autoload :Base64, "base64"
 require "digest/sha2" unless defined?(Digest::SHA2)
 require_relative "../encrypted_data_bag_item"
 require_relative "unsupported_encrypted_data_bag_item_format"
@@ -158,7 +158,7 @@ class Chef::EncryptedDataBagItem
             d = OpenSSL::Cipher.new(algorithm)
             d.decrypt
             # We must set key before iv: https://bugs.ruby-lang.org/issues/8221
-            d.key = OpenSSL::Digest::SHA256.digest(key)
+            d.key = OpenSSL::Digest.digest("SHA256", key)
             d.iv = iv
             d
           end

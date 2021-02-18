@@ -83,7 +83,7 @@ describe Chef::Knife::CookbookDownload do
         }
       end
 
-      let (:cookbook) do
+      let(:cookbook) do
         cb = Chef::CookbookVersion.new("foobar")
         cb.version = "1.0.0"
         cb.manifest = manifest_data
@@ -91,10 +91,10 @@ describe Chef::Knife::CookbookDownload do
       end
 
       describe "and no version" do
-        let (:manifest_data) { { all_files: [] } }
+        let(:manifest_data) { { all_files: [] } }
         it "should determine which version to download" do
           expect(@knife).to receive(:determine_version).and_return("1.0.0")
-          expect(File).to receive(:exists?).with("/var/tmp/chef/foobar-1.0.0").and_return(false)
+          expect(File).to receive(:exist?).with("/var/tmp/chef/foobar-1.0.0").and_return(false)
           @knife.run
         end
       end
@@ -111,7 +111,7 @@ describe Chef::Knife::CookbookDownload do
         end
 
         it "should print an error and exit if the cookbook download directory already exists" do
-          expect(File).to receive(:exists?).with("/var/tmp/chef/foobar-1.0.0").and_return(true)
+          expect(File).to receive(:exist?).with("/var/tmp/chef/foobar-1.0.0").and_return(true)
           expect(@knife.ui).to receive(:fatal).with(%r{/var/tmp/chef/foobar-1\.0\.0 exists}i)
           expect { @knife.run }.to raise_error(SystemExit)
         end
@@ -135,19 +135,19 @@ describe Chef::Knife::CookbookDownload do
           end
 
           it "should download the cookbook when the cookbook download directory doesn't exist" do
-            expect(File).to receive(:exists?).with("/var/tmp/chef/foobar-1.0.0").and_return(false)
+            expect(File).to receive(:exist?).with("/var/tmp/chef/foobar-1.0.0").and_return(false)
             @knife.run
             %w{attributes recipes templates}.each do |segment|
-              expect(@stderr.string).to match /downloading #{segment}/im
+              expect(@stderr.string).to match(/downloading #{segment}/im)
             end
-            expect(@stderr.string).to match /downloading foobar cookbook version 1\.0\.0/im
+            expect(@stderr.string).to match(/downloading foobar cookbook version 1\.0\.0/im)
             expect(@stderr.string).to match %r{cookbook downloaded to /var/tmp/chef/foobar-1\.0\.0}im
           end
 
           describe "with -f or --force" do
             it "should remove the existing the cookbook download directory if it exists" do
               @knife.config[:force] = true
-              expect(File).to receive(:exists?).with("/var/tmp/chef/foobar-1.0.0").and_return(true)
+              expect(File).to receive(:exist?).with("/var/tmp/chef/foobar-1.0.0").and_return(true)
               expect(FileUtils).to receive(:rm_rf).with("/var/tmp/chef/foobar-1.0.0")
               @knife.run
             end

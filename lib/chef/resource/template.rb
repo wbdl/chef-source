@@ -20,7 +20,7 @@
 
 require_relative "file"
 require_relative "../mixin/securable"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Resource
@@ -69,7 +69,7 @@ class Chef
 
       property :local, [ TrueClass, FalseClass ],
         default: false, desired_state: false,
-        description: "Load a template from a local path. By default, the #{Chef::Dist::CLIENT} loads templates from a cookbook’s /templates directory. When this property is set to true, use the source property to specify the path to a template on the local node."
+        description: "Load a template from a local path. By default, the #{ChefUtils::Dist::Infra::CLIENT} loads templates from a cookbook's /templates directory. When this property is set to true, use the source property to specify the path to a template on the local node."
 
       # Declares a helper method to be defined in the template context when
       # rendering.
@@ -169,8 +169,8 @@ class Chef
         elsif module_name.nil?
           raise Exceptions::ValidationFailed,
             "#helpers requires either a module name or inline module code as a block.\n" +
-            "e.g.: helpers do; helper_code; end;\n" +
-            "OR: helpers(MyHelpersModule)"
+              "e.g.: helpers do; helper_code; end;\n" +
+              "OR: helpers(MyHelpersModule)"
         else
           raise Exceptions::ValidationFailed,
             "Argument to #helpers must be a module. You gave #{module_name.inspect} (#{module_name.class})"

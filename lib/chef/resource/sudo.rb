@@ -28,12 +28,39 @@ class Chef
 
       provides(:sudo) { true }
 
-      description "Use the sudo resource to add or remove individual sudo entries using sudoers.d files."\
+      description "Use the **sudo** resource to add or remove individual sudo entries using sudoers.d files."\
                   " Sudo version 1.7.2 or newer is required to use the sudo resource, as it relies on the"\
-                  " '#includedir' directive introduced in version 1.7.2. This resource does not enforce"\
+                  " `#includedir` directive introduced in version 1.7.2. This resource does not enforce"\
                   " installation of the required sudo version. Chef-supported releases of Ubuntu, SuSE, Debian,"\
                   " and RHEL (6+) all support this feature."
       introduced "14.0"
+      examples <<~DOC
+      **Grant a user sudo privileges for any command**
+
+      ```ruby
+      sudo 'admin' do
+        user 'admin'
+      end
+      ```
+
+      **Grant a user and groups sudo privileges for any command**
+
+      ```ruby
+      sudo 'admins' do
+        users 'bob'
+        groups 'sysadmins, superusers'
+      end
+      ```
+
+      **Grant passwordless sudo privileges for specific commands**
+
+      ```ruby
+      sudo 'passwordless-access' do
+        commands ['/bin/systemctl restart httpd', '/bin/systemctl restart mysql']
+        nopasswd true
+      end
+      ```
+      DOC
 
       # According to the sudo man pages sudo will ignore files in an include dir that have a `.` or `~`
       # We convert either to `__`
@@ -53,7 +80,7 @@ class Chef
         coerce: proc { |x| coerce_groups(x) }
 
       property :commands, Array,
-        description: "An array of commands this sudoer can execute.",
+        description: "An array of full paths to commands this sudoer can execute.",
         default: ["ALL"]
 
       property :host, String,
@@ -88,15 +115,15 @@ class Chef
         default: lazy { [] }
 
       property :setenv, [TrueClass, FalseClass],
-        description: "Determines whether or not to permit preservation of the environment with 'sudo -E'.",
+        description: "Determines whether or not to permit preservation of the environment with `sudo -E`.",
         default: false
 
       property :env_keep_add, Array,
-        description: "An array of strings to add to env_keep.",
+        description: "An array of strings to add to `env_keep`.",
         default: lazy { [] }
 
       property :env_keep_subtract, Array,
-        description: "An array of strings to remove from env_keep.",
+        description: "An array of strings to remove from `env_keep`.",
         default: lazy { [] }
 
       property :visudo_path, String,
@@ -112,7 +139,7 @@ class Chef
 
       # handle legacy cookbook property
       def after_created
-        raise "The 'visudo_path' property from the sudo cookbook has been replaced with the 'visudo_binary' property. The path is now more intelligently determined and for most users specifying the path should no longer be necessary. If this resource still cannot determine the path to visudo then provide the full path to the binary with the 'visudo_binary' property." if visudo_path
+        raise "The 'visudo_path' property from the sudo cookbook has been replaced with the 'visudo_binary' property. The path is now more intelligently determined and for most users specifying the path should no longer be necessary. If this resource still cannot determine the path to visudo then provide the absolute path to the binary with the 'visudo_binary' property." if visudo_path
       end
 
       # VERY old legacy properties
@@ -172,7 +199,7 @@ class Chef
           end
         else
           template file_path do
-            source ::File.expand_path("../support/sudoer.erb", __FILE__)
+            source ::File.expand_path("support/sudoer.erb", __dir__)
             local true
             mode "0440"
             variables sudoer:            (new_resource.groups + new_resource.users).join(","),
@@ -228,7 +255,7 @@ class Chef
         end
 
         def visudo_content(path)
-          if ::File.exists?(path)
+          if ::File.exist?(path)
             "cat #{new_resource.config_prefix}/sudoers | #{new_resource.visudo_binary} -cf - && #{new_resource.visudo_binary} -cf %{path}"
           else
             "cat #{new_resource.config_prefix}/sudoers %{path} | #{new_resource.visudo_binary} -cf -"

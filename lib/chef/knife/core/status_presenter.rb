@@ -23,31 +23,6 @@ class Chef
   class Knife
     module Core
 
-      # This module may be included into a knife subcommand class to automatically
-      # add configuration options used by the StatusPresenter
-      module StatusFormattingOptions
-        # @private
-        # Would prefer to do this in a rational way, but can't be done b/c of
-        # Mixlib::CLI's design :(
-        def self.included(includer)
-          includer.class_eval do
-            option :medium_output,
-              short: "-m",
-              long: "--medium",
-              boolean: true,
-              default: false,
-              description: "Include normal attributes in the output"
-
-            option :long_output,
-              short: "-l",
-              long: "--long",
-              boolean: true,
-              default: false,
-              description: "Include all attributes in the output"
-          end
-        end
-      end
-
       # A customized presenter for Chef::Node objects. Supports variable-length
       # output formats for displaying node data
       class StatusPresenter < GenericPresenter
@@ -67,7 +42,7 @@ class Chef
 
             result["name"] = node["name"] || node.name
             result["chef_environment"] = node["chef_environment"]
-            ip = (node["cloud"] && node["cloud"]["public_ipv4_addrs"].first) || node["ipaddress"]
+            ip = (node["cloud"] && node["cloud"]["public_ipv4_addrs"]&.first) || node["ipaddress"]
             fqdn = (node["cloud"] && node["cloud"]["public_hostname"]) || node["fqdn"]
             result["ip"] = ip if ip
             result["fqdn"] = fqdn if fqdn
@@ -95,7 +70,7 @@ class Chef
           summarized = ""
           list.each do |data|
             node = data
-            # special case clouds with their split horizon whatsis.
+            # special case clouds with their split horizon thing.
             ip = (node[:cloud] && node[:cloud][:public_ipv4_addrs] && node[:cloud][:public_ipv4_addrs].first) || node[:ipaddress]
             fqdn = (node[:cloud] && node[:cloud][:public_hostname]) || node[:fqdn]
             name = node["name"] || node.name

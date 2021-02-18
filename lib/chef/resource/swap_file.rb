@@ -24,8 +24,25 @@ class Chef
 
       provides(:swap_file) { true }
 
-      description "Use the swap_file resource to create or delete swap files on Linux systems, and optionally to manage the swappiness configuration for a host."
+      description "Use the **swap_file** resource to create or delete swap files on Linux systems, and optionally to manage the swappiness configuration for a host."
       introduced "14.0"
+      examples <<~DOC
+      **Create a swap file**
+
+      ```ruby
+      swap_file '/dev/sda1' do
+        size 1024
+      end
+      ```
+
+      **Remove a swap file**
+
+      ```ruby
+      swap_file '/dev/sda1' do
+        action :remove
+      end
+      ```
+      DOC
 
       property :path, String,
         description: "The path where the swap file will be created on the system if it differs from the resource block's name.",
@@ -39,7 +56,7 @@ class Chef
         default: false
 
       property :timeout, Integer,
-        description: "Timeout for 'dd' / 'fallocate' commands.",
+        description: "Timeout for `dd` / `fallocate` commands.",
         default: 600,
         desired_state: false
 

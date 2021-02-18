@@ -18,7 +18,6 @@
 #
 
 require "spec_helper"
-require "functional/resource/base"
 require "chef/mixin/shell_out"
 
 describe Chef::Resource::Group, :requires_root_or_running_windows do
@@ -113,6 +112,15 @@ describe Chef::Resource::Group, :requires_root_or_running_windows do
     # TODO: User shouldn't exist
   end
 
+  let(:run_context) do
+    node = Chef::Node.new
+    node.default[:platform] = ohai[:platform]
+    node.default[:platform_version] = ohai[:platform_version]
+    node.default[:os] = ohai[:os]
+    events = Chef::EventDispatch::Dispatcher.new
+    Chef::RunContext.new(node, {}, events)
+  end
+
   shared_examples_for "correct group management" do
     def add_members_to_group(members)
       temp_resource = group_resource.dup
@@ -151,8 +159,10 @@ describe Chef::Resource::Group, :requires_root_or_running_windows do
         # excluded_members can only be used when append is set.  It is ignored otherwise.
         let(:excluded_members) { [] }
 
+        let(:expected_error_class) { windows? ? ArgumentError : Mixlib::ShellOut::ShellCommandFailed }
+
         it "should raise an error" do
-          expect { group_resource.run_action(tested_action) }.to raise_error
+          expect { group_resource.run_action(tested_action) }.to raise_error(expected_error_class)
         end
       end
 
@@ -161,8 +171,10 @@ describe Chef::Resource::Group, :requires_root_or_running_windows do
           group_resource.append(true)
         end
 
+        let(:expected_error_class) { windows? ? Chef::Exceptions::Win32APIError : Mixlib::ShellOut::ShellCommandFailed }
+
         it "should raise an error" do
-          expect { group_resource.run_action(tested_action) }.to raise_error
+          expect { group_resource.run_action(tested_action) }.to raise_error(expected_error_class)
         end
       end
     end
@@ -295,12 +307,12 @@ describe Chef::Resource::Group, :requires_root_or_running_windows do
   let(:number) do
     # Loop until we pick a gid that is not in use.
     loop do
-      begin
-        gid = rand(2000..9999) # avoid low group numbers
-        return nil if Etc.getgrgid(gid).nil? # returns nil on windows
-      rescue ArgumentError # group does not exist
-        return gid
-      end
+
+      gid = rand(2000..9999) # avoid low group numbers
+      return nil if Etc.getgrgid(gid).nil? # returns nil on windows
+    rescue ArgumentError # group does not exist
+      return gid
+
     end
   end
 

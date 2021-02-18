@@ -23,9 +23,6 @@ require_relative "../knife"
 class Chef
   class Knife
     class CookbookUpload < Knife
-      CHECKSUM = "checksum".freeze
-      MATCH_CHECKSUM = /[0-9a-f]{32,}/.freeze
-
       deps do
         require_relative "../mixin/file_class"
         include Chef::Mixin::FileClass
@@ -37,10 +34,10 @@ class Chef
       banner "knife cookbook upload [COOKBOOKS...] (options)"
 
       option :cookbook_path,
-        short: "-o PATH:PATH",
-        long: "--cookbook-path PATH:PATH",
-        description: "A colon-separated path to look for cookbooks in.",
-        proc: lambda { |o| o.split(":") }
+        short: "-o 'PATH:PATH'",
+        long: "--cookbook-path 'PATH:PATH'",
+        description: "A delimited path to search for cookbooks. On Unix the delimiter is ':', on Windows it is ';'.",
+        proc: lambda { |o| o.split(File::PATH_SEPARATOR) }
 
       option :freeze,
         long: "--freeze",
@@ -110,8 +107,7 @@ class Chef
           cookbook_path = config[:cookbook_path].respond_to?(:join) ? config[:cookbook_path].join(", ") : config[:cookbook_path]
           ui.warn("Could not find any cookbooks in your cookbook path: '#{File.expand_path(cookbook_path)}'. Use --cookbook-path to specify the desired path.")
         else
-          begin
-            tmp_cl = Chef::CookbookLoader.copy_to_tmp_dir_from_array(cookbooks)
+          Chef::CookbookLoader.copy_to_tmp_dir_from_array(cookbooks) do |tmp_cl|
             tmp_cl.load_cookbooks
             tmp_cl.compile_metadata
             tmp_cl.freeze_versions if config[:freeze]
@@ -130,28 +126,26 @@ class Chef
                   ui.error("Uploading of some of the cookbooks must be failed. Remove cookbook whose version is frozen from your cookbooks repo OR use --force option.")
                   upload_failures += 1
                 rescue SystemExit => e
-                  tmp_cl.unlink!
                   raise exit e.status
                 end
                 ui.info("Uploaded all cookbooks.") if upload_failures == 0
               end
             else
               tmp_cl.each do |cookbook_name, cookbook|
-                begin
-                  upload([cookbook], justify_width)
-                  upload_ok += 1
-                rescue Exceptions::CookbookNotFoundInRepo => e
-                  upload_failures += 1
-                  ui.error("Could not find cookbook #{cookbook_name} in your cookbook path, skipping it")
-                  Log.debug(e)
-                  upload_failures += 1
-                rescue Exceptions::CookbookFrozen
-                  ui.warn("Not updating version constraints for #{cookbook_name} in the environment as the cookbook is frozen.")
-                  upload_failures += 1
-                rescue SystemExit => e
-                  tmp_cl.unlink!
-                  raise exit e.status
-                end
+
+                upload([cookbook], justify_width)
+                upload_ok += 1
+              rescue Exceptions::CookbookNotFoundInRepo => e
+                upload_failures += 1
+                ui.error("Could not find cookbook #{cookbook_name} in your cookbook path, skipping it")
+                Log.debug(e)
+                upload_failures += 1
+              rescue Exceptions::CookbookFrozen
+                ui.warn("Not updating version constraints for #{cookbook_name} in the environment as the cookbook is frozen.")
+                upload_failures += 1
+              rescue SystemExit => e
+                raise exit e.status
+
               end
 
               if upload_failures == 0
@@ -167,8 +161,6 @@ class Chef
             unless version_constraints_to_update.empty?
               update_version_constraints(version_constraints_to_update) if config[:environment]
             end
-          ensure
-            tmp_cl.unlink!
           end
         end
       end
@@ -180,17 +172,17 @@ class Chef
           else
             upload_set = {}
             @name_args.each do |cookbook_name|
-              begin
-                unless upload_set.key?(cookbook_name)
-                  upload_set[cookbook_name] = cookbook_repo[cookbook_name]
-                  if config[:depends]
-                    upload_set[cookbook_name].metadata.dependencies.each_key { |dep| @name_args << dep }
-                  end
+
+              unless upload_set.key?(cookbook_name)
+                upload_set[cookbook_name] = cookbook_repo[cookbook_name]
+                if config[:depends]
+                  upload_set[cookbook_name].metadata.dependencies.each_key { |dep| @name_args << dep }
                 end
-              rescue Exceptions::CookbookNotFoundInRepo => e
-                ui.error(e.message)
-                Log.debug(e)
               end
+            rescue Exceptions::CookbookNotFoundInRepo => e
+              ui.error(e.message)
+              Log.debug(e)
+
             end
             upload_set
           end
@@ -245,7 +237,7 @@ class Chef
         # manifest object, but the manifest becomes invalid when you
         # regenerate the metadata
         broken_files = cookbook.dup.manifest_records_by_path.select do |path, info|
-          info[CHECKSUM].nil? || info[CHECKSUM] !~ MATCH_CHECKSUM
+          !/[0-9a-f]{32,}/.match?(info["checksum"])
         end
         unless broken_files.empty?
           broken_filenames = Array(broken_files).map { |path, info| path }

@@ -19,8 +19,6 @@
 #
 
 require_relative "exceptions"
-require_relative "dsl/data_query"
-require_relative "dsl/registry_helper"
 require_relative "dsl/reboot_pending"
 require_relative "dsl/resources"
 require_relative "dsl/declare_resource"
@@ -38,7 +36,7 @@ require_relative "resource/resource_notification"
 require_relative "provider_resolver"
 require_relative "resource_resolver"
 require_relative "provider"
-require "set" unless defined?(Set)
+autoload :Set, "set"
 
 require_relative "mixin/deprecation"
 require_relative "mixin/properties"
@@ -53,8 +51,6 @@ class Chef
     #
 
     include Chef::DSL::DeclareResource
-    include Chef::DSL::DataQuery
-    include Chef::DSL::RegistryHelper
     include Chef::DSL::RebootPending
     extend Chef::Mixin::Provides
 
@@ -451,6 +447,17 @@ class Chef
       description: "Determines whether or not the resource is executed during the compile time phase.",
       default: false, desired_state: false
 
+    # Set a umask to be used for the duration of converging the resource.
+    # Defaults to `nil`, which means to use the system umask.
+    #
+    # @param arg [String] The umask to apply while converging the resource.
+    # @return [Boolean] The umask to apply while converging the resource.
+    #
+    property :umask, String,
+      desired_state: false,
+      introduced: "16.2",
+      description: "Set a umask to be used for the duration of converging the resource. Defaults to `nil`, which means to use the system umask. Unsupported on Windows because Windows lacks a direct equivalent to UNIX's umask."
+
     # The time it took (in seconds) to run the most recently-run action.  Not
     # cumulative across actions.  This is set to 0 as soon as a new action starts
     # running, and set to the elapsed time at the end of the action.
@@ -588,7 +595,9 @@ class Chef
       begin
         return if should_skip?(action)
 
-        provider_for_action(action).run_action
+        with_umask do
+          provider_for_action(action).run_action
+        end
       rescue StandardError => e
         if ignore_failure
           logger.error("#{custom_exception_message(e)}; ignore_failure is set, continuing")
@@ -612,12 +621,20 @@ class Chef
       events.resource_completed(self)
     end
 
+    def with_umask
+      old_value = ::File.umask(umask.oct) if umask
+      yield
+    ensure
+      ::File.umask(old_value) if umask
+    end
+
     #
     # If we are currently initializing the resource, this will be true.
     #
     # Do NOT use this. It may be removed. It is for internal purposes only.
     # @api private
     attr_reader :resource_initializing
+
     def resource_initializing=(value)
       if value
         @resource_initializing = true
@@ -642,17 +659,17 @@ class Chef
 
       all_props = {}
       self.class.state_properties.map do |p|
-        begin
-          all_props[p.name.to_s] = p.sensitive? ? '"*sensitive value suppressed*"' : value_to_text(p.get(self))
-        rescue Chef::Exceptions::ValidationFailed
-          # This space left intentionally blank, the property was probably required or had an invalid default.
-        end
+
+        all_props[p.name.to_s] = p.sensitive? ? '"*sensitive value suppressed*"' : value_to_text(p.get(self))
+      rescue Chef::Exceptions::ValidationFailed
+        # This space left intentionally blank, the property was probably required or had an invalid default.
+
       end
 
       ivars = instance_variables.map(&:to_sym) - HIDDEN_IVARS
       ivars.each do |ivar|
         iv = ivar.to_s.sub(/^@/, "")
-        if all_props.keys.include?(iv)
+        if all_props.key?(iv)
           text << "  #{iv} #{all_props[iv]}\n"
         elsif (value = instance_variable_get(ivar)) && !(value.respond_to?(:empty?) && value.empty?)
           text << "  #{iv} #{value_to_text(value)}\n"
@@ -868,6 +885,7 @@ class Chef
     #   have.
     #
     attr_writer :allowed_actions
+
     def allowed_actions(value = NOT_PASSED)
       if value != NOT_PASSED
         self.allowed_actions = value
@@ -930,7 +948,7 @@ class Chef
     end
 
     #
-    # A hook called after a resource is created.  Meant to be overriden by
+    # A hook called after a resource is created.  Meant to be overridden by
     # subclasses.
     #
     def after_created
@@ -950,16 +968,7 @@ class Chef
     def self.resource_name(name = NOT_PASSED)
       # Setter
       if name != NOT_PASSED
-        if name
-          @resource_name = name.to_sym
-          name = name.to_sym
-          # FIXME: determine a way to deprecate this magic behavior
-          unless Chef::ResourceResolver.includes_handler?(name, self)
-            provides name
-          end
-        else
-          @resource_name = nil
-        end
+        @resource_name = name.to_sym rescue nil
       end
 
       @resource_name = nil unless defined?(@resource_name)
@@ -1053,6 +1062,7 @@ class Chef
     # action for the resource.
     #
     # @param name [Symbol] The action name to define.
+    # @param description [String] optional description for the action
     # @param recipe_block The recipe to run when the action is taken. This block
     #   takes no parameters, and will be evaluated in a new context containing:
     #
@@ -1062,12 +1072,35 @@ class Chef
     #
     # @return The Action class implementing the action
     #
-    def self.action(action, &recipe_block)
+    def self.action(action, description: nil, &recipe_block)
       action = action.to_sym
       declare_action_class
       action_class.action(action, &recipe_block)
       self.allowed_actions += [ action ]
+      # Accept any non-nil description, which will correctly override
+      # any specific inherited description.
+      action_descriptions[action] = description unless description.nil?
       default_action action if Array(default_action) == [:nothing]
+    end
+
+    # Retrieve the description for a resource's action, if
+    # any description has been included in the definition.
+    #
+    # @param action [Symbol,String] the action name
+    # @return the description of the action provided, or nil if no description
+    # was defined
+    def self.action_description(action)
+      action_descriptions[action.to_sym]
+    end
+
+    # @api private
+    #
+    # @return existing action description hash, or newly-initialized
+    # hash containing action descriptions inherited from parent Resource,
+    # if any.
+    def self.action_descriptions
+      @action_descriptions ||=
+        superclass.respond_to?(:action_descriptions) ? superclass.action_descriptions.dup : { nothing: nil }
     end
 
     # Define a method to load up this resource's properties with the current
@@ -1114,7 +1147,7 @@ class Chef
     # `action_class` method, the presence of either indicates that this is
     # going to be a Chef-12.5 custom resource.  If we never see one of these
     # directives then we are constructing an old-style Resource+Provider or
-    # LWRP or whatevs.
+    # LWRP or whatever.
     #
     # If a block is passed, the action_class is always created and the block is
     # run inside it.
@@ -1187,9 +1220,9 @@ class Chef
     #
 
     # FORBIDDEN_IVARS do not show up when the resource is converted to JSON (ie. hidden from data_collector and sending to the chef server via #to_json/to_h/as_json/inspect)
-    FORBIDDEN_IVARS = %i{@run_context @logger @not_if @only_if @enclosing_provider @description @introduced @examples @validation_message @deprecated @default_description @skip_docs @executed_by_runner}.freeze
+    FORBIDDEN_IVARS = %i{@run_context @logger @not_if @only_if @enclosing_provider @description @introduced @examples @validation_message @deprecated @default_description @skip_docs @executed_by_runner @action_descriptions}.freeze
     # HIDDEN_IVARS do not show up when the resource is displayed to the user as text (ie. in the error inspector output via #to_text)
-    HIDDEN_IVARS = %i{@allowed_actions @resource_name @source_line @run_context @logger @name @not_if @only_if @elapsed_time @enclosing_provider @description @introduced @examples @validation_message @deprecated @default_description @skip_docs @executed_by_runner}.freeze
+    HIDDEN_IVARS = %i{@allowed_actions @resource_name @source_line @run_context @logger @name @not_if @only_if @elapsed_time @enclosing_provider @description @introduced @examples @validation_message @deprecated @default_description @skip_docs @executed_by_runner @action_descriptions}.freeze
 
     include Chef::Mixin::ConvertToClassName
     extend Chef::Mixin::ConvertToClassName
@@ -1327,7 +1360,7 @@ class Chef
     # Once we no longer care about supporting chef < 14.4 then we can deprecate
     # this API.
     #
-    # @param arg [String] version constrant to match against (e.g. "> 14")
+    # @param arg [String] version constraint to match against (e.g. "> 14")
     #
     def self.chef_version_for_provides(constraint)
       @chef_version_for_provides = constraint
@@ -1471,7 +1504,7 @@ class Chef
     def self.use(partial)
       dirname = ::File.dirname(partial)
       basename = ::File.basename(partial, ".rb")
-      basename = basename[1..-1] if basename.start_with?("_")
+      basename = basename[1..] if basename.start_with?("_")
       class_eval IO.read(::File.expand_path("#{dirname}/_#{basename}.rb", ::File.dirname(caller_locations.first.absolute_path)))
     end
 

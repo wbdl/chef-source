@@ -1,5 +1,7 @@
 puts "CHEF UTILS THINKS WE ARE ON UBUNTU" if ubuntu?
 puts "CHEF UTILS THINKS WE ARE ON RHEL" if rhel?
+puts "CHEF UTILS THINKS WE ARE ON MACOS" if macos?
+puts "CHEF UTILS THINKS WE ARE ON WINDOWS" if windows?
 
 #
 # ubuntu cookbook overrides
@@ -21,7 +23,7 @@ default["openssh"]["client"]["password_authentication"] = "yes"
 # turn off kerberos client-side
 default["openssh"]["client"]["gssapi_authentication"] = "no"
 default["openssh"]["client"]["check_host_ip"] = "no"
-# everone turns strict host key checking off anyway
+# everyone turns strict host key checking off anyway
 default["openssh"]["client"]["strict_host_key_checking"] = "no"
 # force protocol 2
 default["openssh"]["client"]["protocol"] = "2"

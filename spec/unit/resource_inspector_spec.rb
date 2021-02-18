@@ -28,18 +28,23 @@ class DummyResource < Chef::Resource
   introduced "14.0"
   property :first, String, description: "My First Property", introduced: "14.0"
 
-  action :dummy do
+  action :dummy, description: "Dummy action" do
+    return true
+  end
+
+  action :dummy_no_desc do
     return true
   end
 end
 
-describe ResourceInspector do
+describe Chef::ResourceInspector do
   describe "inspecting a resource" do
-    subject { ResourceInspector.extract_resource(DummyResource, false) }
+    subject { Chef::ResourceInspector.extract_resource(DummyResource, false) }
 
     it "returns a hash with required data" do
       expect(subject[:description]).to eq "A dummy resource"
-      expect(subject[:actions]).to match_array %i{nothing dummy}
+      expect(subject[:actions]).to eq({ nothing: nil, dummy: "Dummy action",
+                                        dummy_no_desc: nil })
     end
 
     context "excluding built in properties" do
@@ -50,7 +55,7 @@ describe ResourceInspector do
     end
 
     context "including built in properties" do
-      subject { ResourceInspector.extract_resource(DummyResource, true) }
+      subject { Chef::ResourceInspector.extract_resource(DummyResource, true) }
       it "returns many properties" do
         expect(subject[:properties].count).to be > 1
         expect(subject[:properties].map { |n| n[:name] }).to include(:name, :first, :sensitive)

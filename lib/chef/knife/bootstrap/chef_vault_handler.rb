@@ -102,7 +102,7 @@ class Chef
           config[:bootstrap_vault_item]
         end
 
-        # Helper to return a ruby object represeting all the data bags and items
+        # Helper to return a ruby object representing all the data bags and items
         # to update via chef-vault.
         #
         # @return [Hash] deserialized ruby hash with all the vault items
@@ -112,7 +112,7 @@ class Chef
               if bootstrap_vault_item
                 bootstrap_vault_item
               else
-                json = bootstrap_vault_json ? bootstrap_vault_json : File.read(bootstrap_vault_file)
+                json = bootstrap_vault_json || File.read(bootstrap_vault_file)
                 Chef::JSONCompat.from_json(json)
               end
             end

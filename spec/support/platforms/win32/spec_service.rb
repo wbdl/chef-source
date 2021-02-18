@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-if RUBY_PLATFORM =~ /mswin|mingw|windows/
+if RUBY_PLATFORM.match?(/mswin|mingw|windows/)
   require "win32/daemon"
 
   class SpecService < ::Win32::Daemon
@@ -26,7 +26,7 @@ if RUBY_PLATFORM =~ /mswin|mingw|windows/
 
     def service_main(*startup_parameters)
       while running?
-        unless File.exists?(@test_service_file)
+        unless File.exist?(@test_service_file)
           File.open(@test_service_file, "wb") do |f|
             f.write("This file is created by SpecService")
           end

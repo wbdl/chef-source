@@ -23,6 +23,8 @@ class Chef
       require_relative "../mixin/openssl_helper"
       include Chef::Mixin::OpenSSLHelper
 
+      unified_mode true
+
       provides(:openssl_rsa_public_key) { true }
 
       examples <<~DOC
@@ -47,7 +49,7 @@ class Chef
         ```
       DOC
 
-      description "Use the openssl_rsa_public_key resource to generate RSA public key files for a given RSA private key."
+      description "Use the **openssl_rsa_public_key** resource to generate RSA public key files for a given RSA private key."
       introduced "14.0"
 
       property :path, String,

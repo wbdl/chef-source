@@ -16,7 +16,7 @@
 #
 
 require_relative "../resource"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Resource
@@ -24,7 +24,7 @@ class Chef
       unified_mode true
       provides :locale
 
-      description "Use the locale resource to set the system's locale on Debian and Windows systems. Windows support was added in Chef Infra Client 16.0"
+      description "Use the **locale** resource to set the system's locale on Debian and Windows systems. Windows support was added in Chef Infra Client 16.0"
       introduced "14.5"
 
       examples <<~DOC
@@ -45,7 +45,7 @@ class Chef
       property :lang, String,
         description: "Sets the default system language.",
         regex: [LOCALE_REGEX],
-        validation_message: "The provided lang is not valid. It should be a non-empty string without any leading whitespaces."
+        validation_message: "The provided lang is not valid. It should be a non-empty string without any leading whitespace."
 
       property :lc_env, Hash,
         description: "A Hash of LC_* env variables in the form of `({ 'LC_ENV_VARIABLE' => 'VALUE' })`.",
@@ -59,7 +59,7 @@ class Chef
             end
           end
           unless h.values.all? { |x| x =~ LOCALE_REGEX }
-            error_msg = "Values of option lc_env should be non-empty string without any leading whitespaces."
+            error_msg = "Values of option lc_env should be non-empty string without any leading whitespace."
             raise Chef::Exceptions::ValidationFailed, error_msg
           end
           h
@@ -71,7 +71,7 @@ class Chef
       #
       def lc_all(arg = nil)
         unless arg.nil?
-          Chef.deprecated(:locale_lc_all, "Changing LC_ALL can break #{Chef::Dist::PRODUCT}'s parsing of command output in unexpected ways.\n Use one of the more specific LC_ properties as needed.")
+          Chef.deprecated(:locale_lc_all, "Changing LC_ALL can break #{ChefUtils::Dist::Infra::PRODUCT}'s parsing of command output in unexpected ways.\n Use one of the more specific LC_ properties as needed.")
         end
       end
 
@@ -97,8 +97,7 @@ class Chef
         powershell_exec("Get-WinSystemLocale").result["Name"]
       end
 
-      action :update do
-        description "Update the system's locale."
+      action :update, description: "Update the system's locale" do
         converge_if_changed do
           set_system_locale
         end
@@ -120,12 +119,12 @@ class Chef
           end
         end
 
-        # Generates the localisation files from templates using locale-gen.
+        # Generates the localization files from templates using locale-gen.
         # @see http://manpages.ubuntu.com/manpages/cosmic/man8/locale-gen.8.html
         # @raise [Mixlib::ShellOut::ShellCommandFailed] not a supported language or locale
         #
         def generate_locales
-          shell_out!("locale-gen #{unavailable_locales.join(" ")}")
+          shell_out!("locale-gen #{unavailable_locales.join(" ")}", timeout: 1800)
         end
 
         # Sets the system locale for the current computer.

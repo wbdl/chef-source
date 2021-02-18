@@ -17,7 +17,6 @@
 #
 
 require_relative "script"
-require_relative "../provider/script"
 
 class Chef
   class Resource
@@ -31,11 +30,11 @@ class Chef
         @interpreter = "perl"
       end
 
-      description "Use the perl resource to execute scripts using the Perl interpreter."\
+      description "Use the **perl** resource to execute scripts using the Perl interpreter."\
                   " This resource may also use any of the actions and properties that are"\
-                  " available to the execute resource. Commands that are executed with this"\
+                  " available to the **execute** resource. Commands that are executed with this"\
                   " resource are (by their nature) not idempotent, as they are typically"\
-                  " unique to the environment in which they are run. Use not_if and only_if"\
+                  " unique to the environment in which they are run. Use `not_if` and `only_if`"\
                   " to guard this resource for idempotence."
     end
   end

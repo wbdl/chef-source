@@ -17,14 +17,13 @@
 #
 
 require "spec_helper"
-require "chef/mixin/powershell_out"
-require "chef/mixin/shell_out"
+require "chef/mixin/powershell_exec"
 require "chef/mixin/windows_architecture_helper"
 require "support/shared/integration/integration_helper"
 
-describe Chef::Resource::DscScript, :windows_powershell_dsc_only do
+describe Chef::Resource::DscScript, :windows_powershell_dsc_only, :ruby64_only do
   include Chef::Mixin::WindowsArchitectureHelper
-  include Chef::Mixin::PowershellOut
+  include Chef::Mixin::PowershellExec
   before(:all) do
     @temp_dir = ::Dir.mktmpdir("dsc-functional-test")
     # enable the HTTP listener if it is not already enabled needed by underlying DSC engine
@@ -34,7 +33,7 @@ describe Chef::Resource::DscScript, :windows_powershell_dsc_only do
         winrm create winrm/config/Listener?Address=*+Transport=HTTP
       }
     CODE
-    powershell_out!(winrm_code)
+    powershell_exec!(winrm_code)
   end
 
   after(:all) do
@@ -262,12 +261,9 @@ describe Chef::Resource::DscScript, :windows_powershell_dsc_only do
 
       it "should raise an exception if the cwd is etc" do
         dsc_test_resource.cwd(dsc_environment_fail_etc_directory)
-        expect { dsc_test_resource.run_action(:run) }.to raise_error(Chef::Exceptions::PowershellCmdletException)
-        begin
+        expect {
           dsc_test_resource.run_action(:run)
-        rescue Chef::Exceptions::PowershellCmdletException => e
-          expect(e.message).to match(exception_message_signature)
-        end
+        }.to raise_error(Chef::PowerShell::CommandFailed, /#{exception_message_signature}/)
       end
     end
   end

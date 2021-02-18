@@ -22,20 +22,19 @@ require_relative "../../mixin/shell_out"
 require_relative "../../mixin/which"
 require_relative "../user"
 require_relative "../../resource/user/mac_user"
-require "plist"
+autoload :Plist, "plist"
 
 class Chef
   class Provider
     class User
       # A macOS user provider that is compatible with default TCC restrictions
       # in macOS 10.14. See resource/user/mac_user.rb for complete description
-      # of the mac_user resource and how it differs from the dscl resource used
-      # on previous platforms.
+      # of the mac_user resource
       class MacUser < Chef::Provider::User
         include Chef::Mixin::Which
 
         provides :mac_user
-        provides :user, os: "darwin", platform_version: ">= 10.14"
+        provides :user, os: "darwin"
 
         attr_reader :user_plist, :admin_group_plist
 
@@ -102,7 +101,7 @@ class Chef
           shadow_hash_hex = user_plist[:shadow_hash][0]
           return unless shadow_hash_hex && shadow_hash_hex != ""
 
-          # The password infomation is stored in the ShadowHashData key in the
+          # The password information is stored in the ShadowHashData key in the
           # plist. However, parsing it is a bit tricky as the value is itself
           # another encoded binary plist. We have to extract the encoded plist,
           # decode it from hex to a binary plist and then convert the binary
@@ -116,6 +115,8 @@ class Chef
           #
           #  eg:
           #
+          # spellchecker: disable
+          #
           # <array>
           #   <string>77687920 63616e27 74206170 706c6520 6275696c 6420636f 6e736973 74656e74 20746f6f 6c696e67</string>
           # </array>
@@ -125,6 +126,8 @@ class Chef
           # <array>
           #   <data>AADKAAAKAA4LAA0MAAAAAAAAAAA=</data>
           # </array>
+          #
+          # spellchecker: disable
           #
           begin
             shadow_binary_plist = [shadow_hash_hex.delete(" ")].pack("H*")
@@ -159,7 +162,7 @@ class Chef
           # a problem. We'll check stderr and make sure we see that it finished
           # correctly.
           res = run_sysadminctl(cmd)
-          unless res.downcase =~ /creating user/
+          unless /creating user/.match?(res.downcase)
             raise Chef::Exceptions::User, "error when creating user: #{res}"
           end
 
@@ -179,7 +182,7 @@ class Chef
           end
 
           if new_resource.manage_home
-            # "sydadminctl -addUser" will create the home directory if it's
+            # "sysadminctl -addUser" will create the home directory if it's
             # the default /Users/<username>, otherwise it sets it in plist
             # but does not create it. Here we'll ensure that it gets created
             # if we've been given a directory that is not the default.
@@ -217,7 +220,17 @@ class Chef
         end
 
         def compare_user
-          %i{comment shell uid gid salt password admin secure_token hidden}.any? { |m| diverged?(m) }
+          @change_desc = []
+          %i{comment shell uid gid salt password admin secure_token hidden}.each do |attr|
+            if diverged?(attr)
+              desc = "Update #{attr}"
+              unless %i{password gid secure_token hidden}.include?(attr)
+                desc << " from #{current_resource.send(attr)} to #{new_resource.send(attr)}"
+              end
+              @change_desc << desc
+            end
+          end
+          !@change_desc.empty?
         end
 
         def manage_user
@@ -286,9 +299,7 @@ class Chef
           end
 
           if diverged?(:hidden)
-            converge_by("alter hidden") do
-              set_hidden
-            end
+            converge_by("alter hidden") { set_hidden }
           end
 
           reload_user_plist
@@ -305,7 +316,7 @@ class Chef
           # sysadminctl doesn't exit with a non-zero exit code if it encounters
           # a problem. We'll check stderr and make sure we see that it finished
           res = run_sysadminctl(cmd)
-          unless res.downcase =~ /deleting record|not found/
+          unless /deleting record|not found/.match?(res.downcase)
             raise Chef::Exceptions::User, "error deleting user: #{res}"
           end
 
@@ -368,7 +379,7 @@ class Chef
           next_uid_guess = base_uid
           users_uids = run_dscl("list", "/Users", "uid")
           while next_uid_guess < search_limit + base_uid
-            if users_uids =~ Regexp.new("#{Regexp.escape(next_uid_guess.to_s)}\n")
+            if users_uids&.match?(Regexp.new("#{Regexp.escape(next_uid_guess.to_s)}\n"))
               next_uid_guess += 1
             else
               uid = next_uid_guess
@@ -426,7 +437,7 @@ class Chef
           # sysadminctl doesn't exit with a non-zero exit code if it encounters
           # a problem. We'll check stderr and make sure we see that it finished
           res = run_sysadminctl(cmd)
-          unless res.downcase =~ /done/
+          unless /done/.match?(res.downcase)
             raise Chef::Exceptions::User, "error when modifying SecureToken: #{res}"
           end
 
@@ -491,7 +502,7 @@ class Chef
             convert_to_binary(current_resource.salt),
             current_resource.iterations.to_i,
             128,
-            OpenSSL::Digest::SHA512.new
+            OpenSSL::Digest.new("SHA512")
           ).unpack("H*")[0] != current_resource.password
         end
 
@@ -517,7 +528,7 @@ class Chef
                 salt.string,
                 new_resource.iterations,
                 128,
-                OpenSSL::Digest::SHA512.new
+                OpenSSL::Digest.new("SHA512")
               )
             )
           end
@@ -554,7 +565,7 @@ class Chef
           # 0x0A                                    End of record denoted by \n
           # 0x5C                                    Escaping is denoted by \
           # 0x3A                                    Fields are separated by :
-          # 0x2C                                    Values are seperated by ,
+          # 0x2C                                    Values are separated by ,
           # dsRecTypeStandard:Users                 The record type we're configuring
           # 2                                       How many properties we're going to set
           # dsAttrTypeStandard:RecordName           Property 1: our users record name
@@ -579,16 +590,16 @@ class Chef
           timeout = Time.now + 5
 
           loop do
-            begin
-              run_dscl("read", "/Users/#{new_resource.username}", "ShadowHashData")
-              break
-            rescue Chef::Exceptions::DsclCommandFailed => e
-              if Time.now < timeout
-                sleep 0.1
-              else
-                raise Chef::Exceptions::User, e.message
-              end
+
+            run_dscl("read", "/Users/#{new_resource.username}", "ShadowHashData")
+            break
+          rescue Chef::Exceptions::DsclCommandFailed => e
+            if Time.now < timeout
+              sleep 0.1
+            else
+              raise Chef::Exceptions::User, e.message
             end
+
           end
         end
 
@@ -598,22 +609,22 @@ class Chef
 
         def run_sysadminctl(args)
           # sysadminctl doesn't exit with a non-zero code when errors are encountered
-          # and ouputs everything to STDERR instead of STDOUT and STDERR. Therefore we'll
+          # and outputs everything to STDERR instead of STDOUT and STDERR. Therefore we'll
           # return the STDERR and let the caller handle it.
           shell_out!("sysadminctl", args).stderr
         end
 
         def run_dscl(*args)
-          result = shell_out("dscl", "-plist", ".", "-#{args[0]}", args[1..-1])
+          result = shell_out("dscl", "-plist", ".", "-#{args[0]}", args[1..])
           return "" if ( args.first =~ /^delete/ ) && ( result.exitstatus != 0 )
           raise(Chef::Exceptions::DsclCommandFailed, "dscl error: #{result.inspect}") unless result.exitstatus == 0
-          raise(Chef::Exceptions::DsclCommandFailed, "dscl error: #{result.inspect}") if result.stdout =~ /No such key: /
+          raise(Chef::Exceptions::DsclCommandFailed, "dscl error: #{result.inspect}") if /No such key: /.match?(result.stdout)
 
           result.stdout
         end
 
         def run_plutil(*args)
-          result = shell_out("plutil", "-#{args[0]}", args[1..-1])
+          result = shell_out("plutil", "-#{args[0]}", args[1..])
           raise(Chef::Exceptions::PlistUtilCommandFailed, "plutil error: #{result.inspect}") unless result.exitstatus == 0
 
           result.stdout

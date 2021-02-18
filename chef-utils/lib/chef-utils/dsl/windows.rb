@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
@@ -57,7 +58,7 @@ module ChefUtils
         node["kernel"]["product_type"] == "Server"
       end
 
-      # Determine the current Windows NT version. The NT version often differs from the marketing version, but offers a good way to find desktop and server releases that are based on the same codebase. IE: NT 6.3 is Windows 8.1 and Windows 2012 R2.
+      # Determine the current Windows NT version. The NT version often differs from the marketing version, but offers a good way to find desktop and server releases that are based on the same codebase. For example NT 6.3 corresponds to Windows 8.1 and Windows 2012 R2.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8

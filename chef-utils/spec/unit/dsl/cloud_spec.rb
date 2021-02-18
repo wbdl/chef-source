@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
@@ -42,6 +43,10 @@ RSpec.describe ChefUtils::DSL::Cloud do
     it "has the #{helper} in the ChefUtils module" do
       expect(ChefUtils).to respond_to(helper)
     end
+  end
+
+  context "on alibaba" do
+    cloud_reports_true_for(:cloud?, :alibaba?, node: { "alibaba" => {}, "cloud" => {} })
   end
 
   context "on ec2" do

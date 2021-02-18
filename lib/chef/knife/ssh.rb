@@ -59,7 +59,7 @@ class Chef
 
       option :prefix_attribute,
         long: "--prefix-attribute ATTR",
-        description: "The attribute to use for prefixing the ouput - default depends on the context."
+        description: "The attribute to use for prefixing the output - default depends on the context."
 
       option :ssh_user,
         short: "-x USERNAME",
@@ -289,13 +289,17 @@ class Chef
           opts[:port] = port unless port.nil?
           opts[:logger] = Chef::Log.with_child(subsystem: "net/ssh") if Chef::Log.level == :trace
           unless config[:host_key_verify]
-            opts[:verify_host_key] = false
+            opts[:verify_host_key] = :never
             opts[:user_known_hosts_file] = "/dev/null"
           end
           if ssh_config[:keepalive]
             opts[:keepalive] = true
             opts[:keepalive_interval] = ssh_config[:keepalive_interval]
           end
+          # maintain support for legacy key types / ciphers / key exchange algorithms.
+          # most importantly this adds back support for DSS host keys
+          # See https://github.com/net-ssh/net-ssh/pull/709
+          opts[:append_all_supported_algorithms] = true
         end
       end
 
@@ -354,21 +358,38 @@ class Chef
         subsession ||= session
         command = fixup_sudo(command)
         command.force_encoding("binary") if command.respond_to?(:force_encoding)
+        begin
+          open_session(subsession, command)
+        rescue => e
+          open_session(subsession, command, true)
+        end
+      end
+
+      def open_session(subsession, command, pty = false)
+        stderr = ""
+        exit_status = 0
         subsession.open_channel do |chan|
           if config[:on_error] && exit_status != 0
             chan.close
           else
-            chan.request_pty
+            chan.request_pty if pty
             chan.exec command do |ch, success|
               raise ArgumentError, "Cannot execute #{command}" unless success
 
               ch.on_data do |ichannel, data|
                 print_data(ichannel.connection[:prefix], data)
-                if data =~ /^knife sudo password: /
+                if /^knife sudo password: /.match?(data)
                   print_data(ichannel.connection[:prefix], "\n")
                   ichannel.send_data("#{get_password}\n")
                 end
               end
+
+              ch.on_extended_data do |_, _type, data|
+                raise ArgumentError if data.eql?("sudo: no tty present and no askpass program specified\n")
+
+                stderr += data
+              end
+
               ch.on_request "exit-status" do |ichannel, data|
                 exit_status = [exit_status, data.read_long].max
               end
@@ -384,7 +405,7 @@ class Chef
       end
 
       def prompt_for_password(prompt = "Enter your password: ")
-        ui.ask(prompt) { |q| q.echo = false }
+        ui.ask(prompt, echo: false)
       end
 
       # Present the prompt and read a single line from the console. It also
@@ -470,7 +491,7 @@ class Chef
 
         new_window_cmds = lambda do
           if session.servers_for.size > 1
-            [""] + session.servers_for[1..-1].map do |server|
+            [""] + session.servers_for[1..].map do |server|
               if config[:tmux_split]
                 "split-window #{ssh_dest.call(server)}; tmux select-layout tiled"
               else
@@ -521,12 +542,12 @@ class Chef
       def cssh
         cssh_cmd = nil
         %w{csshX cssh}.each do |cmd|
-          begin
-            # Unix and Mac only
-            cssh_cmd = shell_out!("which #{cmd}").stdout.strip
-            break
-          rescue Mixlib::ShellOut::ShellCommandFailed
-          end
+
+          # Unix and Mac only
+          cssh_cmd = shell_out!("which #{cmd}").stdout.strip
+          break
+        rescue Mixlib::ShellOut::ShellCommandFailed
+
         end
         raise Chef::Exceptions::Exec, "no command found for cssh" unless cssh_cmd
 
@@ -606,7 +627,7 @@ class Chef
           when "cssh"
             cssh
           else
-            ssh_command(@name_args[1..-1].join(" "))
+            ssh_command(@name_args[1..].join(" "))
           end
 
         session.close

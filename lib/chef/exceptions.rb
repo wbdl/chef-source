@@ -18,7 +18,7 @@
 # limitations under the License.
 
 require "chef-config/exceptions"
-require_relative "dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 require_relative "constants"
 
 class Chef
@@ -84,11 +84,13 @@ class Chef
     class InvalidPrivateKey < ArgumentError; end
     class MissingKeyAttribute < ArgumentError; end
     class KeyCommandInputError < ArgumentError; end
+
     class BootstrapCommandInputError < ArgumentError
       def initialize
         super "You cannot pass both --json-attributes and --json-attribute-file. Please pass one or none."
       end
     end
+
     class InvalidKeyArgument < ArgumentError; end
     class InvalidKeyAttribute < ArgumentError; end
     class InvalidUserAttribute < ArgumentError; end
@@ -195,9 +197,11 @@ class Chef
     class IllegalVersionConstraint < NotImplementedError; end # rubocop:disable Lint/InheritException
 
     class MetadataNotValid < StandardError; end
+
     class MetadataNotFound < StandardError
       attr_reader :install_path
       attr_reader :cookbook_name
+
       def initialize(install_path, cookbook_name)
         @install_path = install_path
         @cookbook_name = cookbook_name
@@ -282,6 +286,7 @@ class Chef
       end
 
     end
+
     # Exception class for collecting multiple failures. Used when running
     # delayed notifications so that chef can process each delayed
     # notification even if chef client or other notifications fail.
@@ -300,7 +305,7 @@ class Chef
 
       def client_run_failure(exception)
         set_backtrace(exception.backtrace)
-        @all_failures << [ "#{Chef::Dist::PRODUCT} run", exception ]
+        @all_failures << [ "#{ChefUtils::Dist::Infra::PRODUCT} run", exception ]
       end
 
       def notification_failure(exception)
@@ -401,7 +406,7 @@ class Chef
       def initialize(response_length, content_length)
         super <<~EOF
           Response body length #{response_length} does not match HTTP Content-Length header #{content_length}.
-          This error is most often caused by network issues (proxies, etc) outside of #{Chef::Dist::CLIENT}.
+          This error is most often caused by network issues (proxies, etc) outside of #{ChefUtils::Dist::Infra::CLIENT}.
         EOF
       end
     end
@@ -422,7 +427,7 @@ class Chef
 
     class ChecksumMismatch < RuntimeError
       def initialize(res_cksum, cont_cksum)
-        super "Checksum on resource (#{res_cksum}) does not match checksum on content (#{cont_cksum})"
+        super "Checksum on resource (#{res_cksum}...) does not match checksum on content (#{cont_cksum}...)"
       end
     end
 
@@ -448,8 +453,9 @@ class Chef
     # to correctly populate the backtrace with the wrapped backtraces.
     class RunFailedWrappingError < RuntimeError
       attr_reader :wrapped_errors
+
       def initialize(*errors)
-        errors = errors.select { |e| !e.nil? }
+        errors = errors.compact
         output = "Found #{errors.size} errors, they are stored in the backtrace"
         @wrapped_errors = errors
         super output
@@ -475,7 +481,7 @@ class Chef
     class CookbookChefVersionMismatch < RuntimeError
       def initialize(chef_version, cookbook_name, cookbook_version, *constraints)
         constraint_str = constraints.map { |c| c.requirement.as_list.to_s }.join(", ")
-        super "Cookbook '#{cookbook_name}' version '#{cookbook_version}' depends on #{Chef::Dist::PRODUCT} version #{constraint_str}, but the running #{Chef::Dist::PRODUCT} version is #{chef_version}"
+        super "Cookbook '#{cookbook_name}' version '#{cookbook_version}' depends on #{ChefUtils::Dist::Infra::PRODUCT} version #{constraint_str}, but the running #{ChefUtils::Dist::Infra::PRODUCT} version is #{chef_version}"
       end
     end
 
@@ -488,6 +494,7 @@ class Chef
 
     class MultipleDscResourcesFound < RuntimeError
       attr_reader :resources_found
+
       def initialize(resources_found)
         @resources_found = resources_found
         matches_info = @resources_found.each do |r|

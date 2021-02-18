@@ -30,8 +30,7 @@ describe Chef::Mixin::PowershellOut, :windows_only do
     it "runs a command and returns the shell_out object" do
       ret = double("Mixlib::ShellOut")
       expect(object).to receive(:shell_out).with(
-        "powershell.exe #{flags} -Command \"Get-Process\"",
-        {}
+        "powershell.exe #{flags} -Command \"Get-Process\""
       ).and_return(ret)
       expect(object.powershell_out("Get-Process")).to eql(ret)
     end
@@ -43,6 +42,20 @@ describe Chef::Mixin::PowershellOut, :windows_only do
         timeout: 600
       ).and_return(ret)
       expect(object.powershell_out("Get-Process", timeout: 600)).to eql(ret)
+    end
+
+    it "uses pwsh.exe when given :pwsh interpreter" do
+      ret = double("Mixlib::ShellOut")
+      expect(object).to receive(:shell_out).with(
+        "pwsh.exe #{flags} -Command \"Get-Process\"",
+        timeout: 600
+      ).and_return(ret)
+      expect(object.powershell_out("Get-Process", :pwsh, timeout: 600)).to eql(ret)
+    end
+
+    it "raises error if interpreter is invalid" do
+      ret = double("Mixlib::ShellOut")
+      expect { object.powershell_out("Get-Process", :blah, timeout: 600) }.to raise_error(ArgumentError)
     end
 
     context "when double quote is passed in the powershell command" do
@@ -62,8 +75,7 @@ describe Chef::Mixin::PowershellOut, :windows_only do
     it "runs a command and returns the shell_out object" do
       mixlib_shellout = double("Mixlib::ShellOut")
       expect(object).to receive(:shell_out).with(
-        "powershell.exe #{flags} -Command \"Get-Process\"",
-        {}
+        "powershell.exe #{flags} -Command \"Get-Process\""
       ).and_return(mixlib_shellout)
       expect(mixlib_shellout).to receive(:error!)
       expect(object.powershell_out!("Get-Process")).to eql(mixlib_shellout)

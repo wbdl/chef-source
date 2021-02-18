@@ -20,14 +20,43 @@ require_relative "../resource"
 
 class Chef
   class Resource
-    # @since 13.3
     class AptPreference < Chef::Resource
       unified_mode true
 
       provides(:apt_preference) { true }
 
-      description "The apt_preference resource allows for the creation of APT preference files. Preference files are used to control which package versions and sources are prioritized during installation."
+      description "Use the **apt_preference** resource to create APT [preference files](https://wiki.debian.org/AptPreferences). Preference files are used to control which package versions and sources are prioritized during installation."
       introduced "13.3"
+      examples <<~DOC
+      **Pin libmysqlclient16 to a version 5.1.49-3**:
+
+      ```ruby
+      apt_preference 'libmysqlclient16' do
+        pin          'version 5.1.49-3'
+        pin_priority '700'
+      end
+      ```
+
+      Note: The `pin_priority` of `700` ensures that this version will be preferred over any other available versions.
+
+      **Unpin a libmysqlclient16**:
+
+      ```ruby
+      apt_preference 'libmysqlclient16' do
+        action :remove
+      end
+      ```
+
+      **Pin all packages to prefer the packages.dotdeb.org repository**:
+
+      ```ruby
+      apt_preference 'dotdeb' do
+        glob         '*'
+        pin          'origin packages.dotdeb.org'
+        pin_priority '700'
+      end
+      ```
+      DOC
 
       property :package_name, String,
         name_property: true,
@@ -36,15 +65,15 @@ class Chef
         validation_message: "The provided package name is not valid. Package names can only contain alphanumeric characters as well as _, -, +, or *!"
 
       property :glob, String,
-        description: "Pin by glob() expression or with regular expressions surrounded by /."
+        description: "Pin by a `glob()` expression or with a regular expression surrounded by `/`."
 
       property :pin, String,
         description: "The package version or repository to pin.",
-        required: true
+        required: [:add]
 
       property :pin_priority, [String, Integer],
         description: "Sets the Pin-Priority for a package. See <https://wiki.debian.org/AptPreferences> for more details.",
-        required: true
+        required: [:add]
 
       default_action :add
       allowed_actions :add, :remove
@@ -62,7 +91,7 @@ class Chef
         end
       end
 
-      action :add do
+      action :add, description: "Creates a preferences file under `/etc/apt/preferences.d`" do
         return unless debian?
 
         preference = build_pref(
@@ -101,7 +130,7 @@ class Chef
         end
       end
 
-      action :remove do
+      action :remove, description: "Removes the preferences file, thus unpinning the package" do
         return unless debian?
 
         sanitized_prefname = safe_name(new_resource.package_name)

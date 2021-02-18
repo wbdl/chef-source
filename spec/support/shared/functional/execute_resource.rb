@@ -58,11 +58,11 @@ shared_context "a command that can be executed as an alternate user" do
   include Chef::Mixin::ShellOut
 
   before do
-    shell_out!("icacls \"#{script_output_dir.gsub(%r{/}, '\\')}\" /grant \"authenticated users:(F)\"")
+    shell_out!("icacls \"#{script_output_dir.tr("/", '\\')}\" /grant \"authenticated users:(F)\"")
   end
 
   after do
-    File.delete(script_output_path) if File.exists?(script_output_path)
+    File.delete(script_output_path) if File.exist?(script_output_path)
     Dir.rmdir(script_output_dir) if Dir.exist?(script_output_dir)
   end
 end

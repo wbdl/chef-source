@@ -28,6 +28,7 @@ describe "Recipe DSL methods" do
         def provider
           Provider
         end
+
         class Provider < Chef::Provider
           def load_current_resource; end
 
@@ -203,7 +204,7 @@ describe "Recipe DSL methods" do
               another_no_name_thingy3("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy3)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy3)
           end
         end
 
@@ -233,7 +234,7 @@ describe "Recipe DSL methods" do
               another_no_name_thingy4("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy4)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy4)
           end
 
           it "and platform_family = foo, another_no_name_thingy4 works" do
@@ -243,7 +244,7 @@ describe "Recipe DSL methods" do
               another_no_name_thingy4("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy4)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy4)
           end
         end
 
@@ -272,7 +273,7 @@ describe "Recipe DSL methods" do
               another_no_name_thingy5("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy5)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy5)
           end
 
           it "the new resource name can be used in a recipe" do
@@ -280,7 +281,7 @@ describe "Recipe DSL methods" do
               another_thingy_name_for_another_no_name_thingy5("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy5)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy5)
           end
         end
 
@@ -309,7 +310,7 @@ describe "Recipe DSL methods" do
               another_no_name_thingy6("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy6)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy6)
           end
 
           it "the new resource name can be used in a recipe" do
@@ -317,7 +318,7 @@ describe "Recipe DSL methods" do
               another_thingy_name_for_another_no_name_thingy6("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy6)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy6)
           end
         end
 
@@ -338,7 +339,7 @@ describe "Recipe DSL methods" do
               another_thingy_name_for_another_no_name_thingy7("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy7)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy7)
           end
 
           it "and os = blarghle, another_thingy_name_for_another_no_name_thingy7 works" do
@@ -348,7 +349,7 @@ describe "Recipe DSL methods" do
               another_thingy_name_for_another_no_name_thingy7("blah") {}
             end
             expect(recipe.logged_warnings).to eq ""
-            expect(BaseThingy.created_resource).to eq (AnotherNoNameThingy7)
+            expect(BaseThingy.created_resource).to eq(AnotherNoNameThingy7)
           end
 
           it "the old resource name does not work" do
@@ -1221,7 +1222,7 @@ describe "Recipe DSL methods" do
 
       it "utf-8 dsl names work" do
         recipe = converge do
-          Straße("blah") {}
+          Straße("blah") {} # rubocop: disable Naming/AsciiIdentifiers
         end
         expect(recipe.logged_warnings).to eq ""
         expect(BaseThingy.created_resource).to eq(UTF8Thingy)
@@ -1233,6 +1234,10 @@ describe "Recipe DSL methods" do
   before { Namer.current_index += 1 }
 
   context "with an LWRP that declares actions" do
+    let(:run_context) do
+      Chef::RunContext.new(Chef::Node.new, {}, Chef::EventDispatch::Dispatcher.new)
+    end
+
     let(:resource_class) do
       Class.new(Chef::Resource::LWRPBase) do
         provides :"recipe_dsl_spec#{Namer.current_index}"

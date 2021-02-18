@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 # Copyright 2009-2016, Dan Kubb
 
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -93,12 +94,21 @@ module ChefUtils
       end
     end
 
+    unless method_defined?(:regular_reader)
+      alias_method :regular_reader, :[]
+    end
+
     unless method_defined?(:regular_writer)
       alias_method :regular_writer, :[]=
     end
 
     unless method_defined?(:regular_update)
       alias_method :regular_update, :update
+    end
+
+    # @param key<Object> The key to get.
+    def [](key)
+      regular_reader(key)
     end
 
     # @param key<Object> The key to set.
@@ -109,6 +119,12 @@ module ChefUtils
     # @see Mash#convert_value
     def []=(key, value)
       regular_writer(convert_key(key), convert_value(value))
+    end
+
+    # internal API for use by Chef's deep merge cache
+    # @api private
+    def internal_get(key)
+      regular_reader(key)
     end
 
     # internal API for use by Chef's deep merge cache

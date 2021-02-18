@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 require_relative "../log"
 require_relative "../provider"
 
@@ -27,8 +26,6 @@ class Chef
 
       SPECIAL_TIME_VALUES = %i{reboot yearly annually monthly weekly daily midnight hourly}.freeze
       CRON_ATTRIBUTES = %i{minute hour day month weekday time command mailto path shell home environment}.freeze
-      WEEKDAY_SYMBOLS = %i{sunday monday tuesday wednesday thursday friday saturday}.freeze
-
       CRON_PATTERN = %r{\A([-0-9*,/]+)\s([-0-9*,/]+)\s([-0-9*,/]+)\s([-0-9*,/]+|[a-zA-Z]{3})\s([-0-9*,/]+|[a-zA-Z]{3})\s(.*)}.freeze
       SPECIAL_PATTERN = /\A(@(#{SPECIAL_TIME_VALUES.join('|')}))\s(.*)/.freeze
       ENV_PATTERN = /\A(\S+)=(\S*)/.freeze
@@ -115,13 +112,7 @@ class Chef
             when ENV_PATTERN
               crontab << line unless cron_found
               next
-            when SPECIAL_PATTERN
-              if cron_found
-                cron_found = false
-                crontab << newcron
-                next
-              end
-            when CRON_PATTERN
+            when SPECIAL_PATTERN, CRON_PATTERN
               if cron_found
                 cron_found = false
                 crontab << newcron
@@ -166,12 +157,7 @@ class Chef
               next
             when ENV_PATTERN
               next if cron_found
-            when SPECIAL_PATTERN
-              if cron_found
-                cron_found = false
-                next
-              end
-            when CRON_PATTERN
+            when SPECIAL_PATTERN, CRON_PATTERN
               if cron_found
                 cron_found = false
                 next
@@ -259,8 +245,8 @@ class Chef
         return "" if new_resource.time_out.empty?
 
         str = " timeout"
-        str << " --preserve-status" if new_resource.time_out["preserve-status"].to_s.downcase == "true"
-        str << " --foreground" if new_resource.time_out["foreground"].to_s.downcase == "true"
+        str << " --preserve-status" if new_resource.time_out["preserve-status"].to_s.casecmp("true") == 0
+        str << " --foreground" if new_resource.time_out["foreground"].to_s.casecmp("true") == 0
         str << " --kill-after #{new_resource.time_out["kill-after"]}" if new_resource.time_out["kill-after"]
         str << " --signal #{new_resource.time_out["signal"]}" if new_resource.time_out["signal"]
         str << " #{new_resource.time_out["duration"]};"
@@ -287,15 +273,6 @@ class Chef
         newcron << duration_str + time_out_str + cmd_str
 
         newcron.join("\n")
-      end
-
-      def weekday_in_crontab
-        weekday_in_crontab = WEEKDAY_SYMBOLS.index(new_resource.weekday)
-        if weekday_in_crontab.nil?
-          new_resource.weekday
-        else
-          weekday_in_crontab.to_s
-        end
       end
     end
   end

@@ -18,13 +18,13 @@
 
 require_relative "auth_credentials"
 require_relative "../exceptions"
-require "openssl" unless defined?(OpenSSL)
+autoload :OpenSSL, "openssl"
 
 class Chef
   class HTTP
     class Authenticator
 
-      DEFAULT_SERVER_API_VERSION = "1".freeze
+      DEFAULT_SERVER_API_VERSION = "2".freeze
 
       attr_reader :signing_key_filename
       attr_reader :raw_key
@@ -68,6 +68,8 @@ class Chef
           version_class.best_request_version
         elsif api_version
           api_version
+        elsif Chef::ServerAPIVersions.instance.negotiated?
+          Chef::ServerAPIVersions.instance.max_server_version.to_s
         else
           DEFAULT_SERVER_API_VERSION
         end

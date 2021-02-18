@@ -21,13 +21,6 @@ describe Chef::Mixin::OpenSSLHelper do
     Class.new { include Chef::Mixin::OpenSSLHelper }.new
   end
 
-  describe ".included" do
-    it "requires openssl" do
-      instance
-      expect(defined?(OpenSSL)).to_not be(false)
-    end
-  end
-
   # Path helpers
   describe "#get_key_filename" do
     context "When the input is not a string" do
@@ -99,7 +92,7 @@ describe Chef::Mixin::OpenSSLHelper do
 
     context "When the dhparam.pem file does exist, and does contain a vaild dhparam key" do
       it "returns true" do
-        @dhparam_file.puts(::OpenSSL::PKey::DH.new(1024).to_pem)
+        @dhparam_file.puts(::OpenSSL::PKey::DH.new(256).to_pem) # this is 256 to speed up specs
         @dhparam_file.close
         expect(instance.dhparam_pem_valid?(@dhparam_file.path)).to be_truthy
       end
@@ -488,7 +481,7 @@ describe Chef::Mixin::OpenSSLHelper do
       @ca_cert.add_extension(ef.create_extension("keyUsage", "keyCertSign, cRLSign", true))
       @ca_cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
       @ca_cert.add_extension(ef.create_extension("authorityKeyIdentifier", "keyid:always", false))
-      @ca_cert.sign(@ca_key, OpenSSL::Digest::SHA256.new)
+      @ca_cert.sign(@ca_key, OpenSSL::Digest.new("SHA256"))
 
       @info_with_issuer = { "validity" => 365, "issuer" => @ca_cert }
       @info_without_issuer = { "validity" => 365 }
@@ -614,7 +607,7 @@ describe Chef::Mixin::OpenSSLHelper do
       @ca_cert.add_extension(ef.create_extension("keyUsage", "keyCertSign, cRLSign", true))
       @ca_cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
       @ca_cert.add_extension(ef.create_extension("authorityKeyIdentifier", "keyid:always", false))
-      @ca_cert.sign(@ca_key, OpenSSL::Digest::SHA256.new)
+      @ca_cert.sign(@ca_key, OpenSSL::Digest.new("SHA256"))
 
       @info = { "validity" => 8, "issuer" => @ca_cert }
     end
@@ -684,7 +677,7 @@ describe Chef::Mixin::OpenSSLHelper do
       @ca_cert.add_extension(ef.create_extension("keyUsage", "keyCertSign, cRLSign", true))
       @ca_cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
       @ca_cert.add_extension(ef.create_extension("authorityKeyIdentifier", "keyid:always", false))
-      @ca_cert.sign(@ca_key, OpenSSL::Digest::SHA256.new)
+      @ca_cert.sign(@ca_key, OpenSSL::Digest.new("SHA256"))
 
       @info = { "validity" => 8, "issuer" => @ca_cert }
 
@@ -765,7 +758,7 @@ describe Chef::Mixin::OpenSSLHelper do
       @ca_cert.add_extension(ef.create_extension("keyUsage", "keyCertSign, cRLSign", true))
       @ca_cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
       @ca_cert.add_extension(ef.create_extension("authorityKeyIdentifier", "keyid:always", false))
-      @ca_cert.sign(@ca_key, OpenSSL::Digest::SHA256.new)
+      @ca_cert.sign(@ca_key, OpenSSL::Digest.new("SHA256"))
 
       @info = { "validity" => 8, "issuer" => @ca_cert }
 

@@ -15,8 +15,7 @@
 # limitations under the License.
 #
 
-require_relative "../../spec_helper"
-require_relative "../../functional/resource/base"
+require "spec_helper"
 
 describe Chef::Resource::WindowsUserPrivilege, :windows_only do
   let(:principal) { nil }

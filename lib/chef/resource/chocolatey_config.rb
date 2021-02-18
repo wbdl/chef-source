@@ -21,10 +21,11 @@ class Chef
 
       provides :chocolatey_config
 
-      description "Use the chocolatey_config resource to add or remove Chocolatey configuration keys."
+      description "Use the **chocolatey_config** resource to add or remove Chocolatey configuration keys."
       introduced "14.3"
       examples <<~DOC
-        Set the Chocolatey cacheLocation config
+        **Set the Chocolatey cacheLocation config**:
+
         ```ruby
         chocolatey_config 'Set cacheLocation config' do
           config_key 'cacheLocation'
@@ -32,7 +33,8 @@ class Chef
         end
         ```
 
-        Unset a Chocolatey config
+        **Unset a Chocolatey config**:
+
         ```ruby
         chocolatey_config 'BogusConfig' do
           action :unset
@@ -66,9 +68,7 @@ class Chef
         data ? data.attribute("value").to_s : nil # REXML just returns nil if it can't find anything so avoid an undefined method error
       end
 
-      action :set do
-        description "Sets a Chocolatey config value."
-
+      action :set, description: "Sets a Chocolatey config value." do
         raise "#{new_resource}: When adding a Chocolatey config you must pass the 'value' property!" unless new_resource.value
 
         converge_if_changed do
@@ -76,9 +76,7 @@ class Chef
         end
       end
 
-      action :unset do
-        description "Unsets a Chocolatey config value."
-
+      action :unset, description: "Unsets a Chocolatey config value." do
         if current_resource
           converge_by("unset Chocolatey config '#{new_resource.config_key}'") do
             shell_out!(choco_cmd("unset"))

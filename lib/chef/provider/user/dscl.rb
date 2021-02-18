@@ -19,8 +19,8 @@
 require_relative "../../mixin/shell_out"
 require_relative "../user"
 require_relative "../../resource/user/dscl_user"
-require "openssl" unless defined?(OpenSSL)
-require "plist"
+autoload :OpenSSL, "openssl"
+autoload :Plist, "plist"
 require_relative "../../util/path_helper"
 
 class Chef
@@ -28,7 +28,7 @@ class Chef
     class User
       #
       # The most tricky bit of this provider is the way it deals with user passwords.
-      # Mac OS X has different password shadow calculations based on the version.
+      # macOS has different password shadow calculations based on the version.
       # < 10.7  => password shadow calculation format SALTED-SHA1
       #         => stored in: /var/db/shadow/hash/#{guid}
       #         => shadow binary length 68 bytes
@@ -215,7 +215,7 @@ in 'password', with the associated 'salt' and 'iterations'.")
           next_uid_guess = base_uid
           users_uids = run_dscl("list", "/Users", "uid")
           while next_uid_guess < search_limit + base_uid
-            if users_uids =~ Regexp.new("#{Regexp.escape(next_uid_guess.to_s)}\n")
+            if users_uids&.match?(Regexp.new("#{Regexp.escape(next_uid_guess.to_s)}\n"))
               next_uid_guess += 1
             else
               uid = next_uid_guess
@@ -291,7 +291,7 @@ in 'password', with the associated 'salt' and 'iterations'.")
         end
 
         def validate_home_dir_specification!
-          unless new_resource.home =~ %r{^/}
+          unless %r{^/}.match?(new_resource.home)
             raise(Chef::Exceptions::InvalidHomeDirectory, "invalid path spec for User: '#{new_resource.username}', home directory: '#{new_resource.home}'")
           end
         end
@@ -382,7 +382,7 @@ in 'password', with the associated 'salt' and 'iterations'.")
               salt,
               iterations,
               128,
-              OpenSSL::Digest::SHA512.new
+              OpenSSL::Digest.new("SHA512")
             )
           end
 
@@ -438,7 +438,7 @@ in 'password', with the associated 'salt' and 'iterations'.")
         #
         def locked?
           if authentication_authority
-            !!(authentication_authority =~ /DisabledUser/ )
+            !!(authentication_authority.include?("DisabledUser"))
           else
             false
           end
@@ -536,7 +536,7 @@ in 'password', with the associated 'salt' and 'iterations'.")
 
           # We flush the cache here in order to make sure that we read fresh information
           # for the user.
-          shell_out("dscacheutil", "-flushcache") # FIXME: this is MacOS version dependent
+          shell_out("dscacheutil", "-flushcache") # FIXME: this is macOS version dependent
 
           begin
             user_plist_file = "#{USER_PLIST_DIRECTORY}/#{new_resource.username}.plist"
@@ -562,7 +562,7 @@ in 'password', with the associated 'salt' and 'iterations'.")
         # Sets a value in user information hash using Chef attributes as keys.
         #
         def dscl_set(user_hash, key, value)
-          raise "Unknown dscl key #{key}" unless DSCL_PROPERTY_MAP.keys.include?(key)
+          raise "Unknown dscl key #{key}" unless DSCL_PROPERTY_MAP.key?(key)
 
           user_hash[DSCL_PROPERTY_MAP[key]] = [ value ]
           user_hash
@@ -572,7 +572,7 @@ in 'password', with the associated 'salt' and 'iterations'.")
         # Gets a value from user information hash using Chef attributes as keys.
         #
         def dscl_get(user_hash, key)
-          raise "Unknown dscl key #{key}" unless DSCL_PROPERTY_MAP.keys.include?(key)
+          raise "Unknown dscl key #{key}" unless DSCL_PROPERTY_MAP.key?(key)
 
           # DSCL values are set as arrays
           value = user_hash[DSCL_PROPERTY_MAP[key]]
@@ -584,16 +584,16 @@ in 'password', with the associated 'salt' and 'iterations'.")
         #
 
         def run_dscl(*args)
-          result = shell_out("dscl", ".", "-#{args[0]}", args[1..-1])
+          result = shell_out("dscl", ".", "-#{args[0]}", args[1..])
           return "" if ( args.first =~ /^delete/ ) && ( result.exitstatus != 0 )
           raise(Chef::Exceptions::DsclCommandFailed, "dscl error: #{result.inspect}") unless result.exitstatus == 0
-          raise(Chef::Exceptions::DsclCommandFailed, "dscl error: #{result.inspect}") if result.stdout =~ /No such key: /
+          raise(Chef::Exceptions::DsclCommandFailed, "dscl error: #{result.inspect}") if result.stdout.include?("No such key: ")
 
           result.stdout
         end
 
         def run_plutil(*args)
-          result = shell_out("plutil", "-#{args[0]}", args[1..-1])
+          result = shell_out("plutil", "-#{args[0]}", args[1..])
           raise(Chef::Exceptions::PlistUtilCommandFailed, "plutil error: #{result.inspect}") unless result.exitstatus == 0
 
           if result.stdout.encoding == Encoding::ASCII_8BIT
@@ -627,7 +627,7 @@ in 'password', with the associated 'salt' and 'iterations'.")
             salt,
             current_resource.iterations,
             128,
-            OpenSSL::Digest::SHA512.new
+            OpenSSL::Digest.new("SHA512")
           ).unpack("H*").first == current_resource.password
         end
 

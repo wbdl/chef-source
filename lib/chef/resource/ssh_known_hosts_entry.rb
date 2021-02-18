@@ -18,7 +18,7 @@
 # limitations under the License.
 
 require_relative "../resource"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Resource
@@ -27,8 +27,23 @@ class Chef
 
       provides :ssh_known_hosts_entry
 
-      description "Use the ssh_known_hosts_entry resource to add an entry for the specified host in /etc/ssh/ssh_known_hosts or a user's known hosts file if specified."
+      description "Use the **ssh_known_hosts_entry** resource to add an entry for the specified host in /etc/ssh/ssh_known_hosts or a user's known hosts file if specified."
       introduced "14.3"
+      examples <<~DOC
+      **Add a single entry for github.com with the key auto detected**
+
+      ```ruby
+      ssh_known_hosts_entry 'github.com'
+      ```
+
+      **Add a single entry with your own provided key**
+
+      ```ruby
+      ssh_known_hosts_entry 'github.com' do
+        key 'node.example.com ssh-rsa ...'
+      end
+      ```
+      DOC
 
       property :host, String,
         description: "The host to add to the known hosts file.",
@@ -91,7 +106,7 @@ class Chef
 
         r = with_run_context :root do
           find_resource(:template, "update ssh known hosts file #{new_resource.file_location}") do
-            source ::File.expand_path("../support/ssh_known_hosts.erb", __FILE__)
+            source ::File.expand_path("support/ssh_known_hosts.erb", __dir__)
             local true
             path new_resource.file_location
             owner new_resource.owner
@@ -115,7 +130,7 @@ class Chef
 
       # all this does is send an immediate run_action(:create) to the template resource
       action :flush do
-        description "Immediately flush the entries to the config file. Without this the actual writing of the file is delayed in the #{Chef::Dist::PRODUCT} run so all entries can be accumulated before writing the file out."
+        description "Immediately flush the entries to the config file. Without this the actual writing of the file is delayed in the #{ChefUtils::Dist::Infra::PRODUCT} run so all entries can be accumulated before writing the file out."
 
         with_run_context :root do
           # if you haven't ever called ssh_known_hosts_entry before you're definitely doing it wrong so we blow up hard.

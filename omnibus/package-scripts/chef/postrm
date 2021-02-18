@@ -7,12 +7,8 @@
 #   this programming language.  do not touch.
 # - if you are under 40, get peer review from your elders.
 
-is_smartos() {
-  uname -v | grep "^joyent" 2>&1 >/dev/null
-}
-
 is_darwin() {
-  uname -v | grep "^Darwin" 2>&1 >/dev/null
+  uname -a | grep "^Darwin" 2>&1 >/dev/null
 }
 
 is_suse() {
@@ -24,9 +20,7 @@ is_suse() {
   fi
 }
 
-if is_smartos; then
-    PREFIX="/opt/local"
-elif is_darwin; then
+if is_darwin; then
     PREFIX="/usr/local"
 else
     PREFIX="/usr"
@@ -45,6 +39,6 @@ if [ ! -f /etc/redhat-release -a ! -f /etc/fedora-release -a ! -f /etc/system-re
   # not a redhat-ish RPM-based system
   cleanup_symlinks
 elif [ "x$1" = "x0" ]; then
-  # RPM-based system and we're deinstalling rather than upgrading
+  # RPM-based system and we're uninstalling rather than upgrading
   cleanup_symlinks
 fi

@@ -20,10 +20,40 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsPagefile < Chef::Resource
+      unified_mode true
+
       provides(:windows_pagefile) { true }
 
-      description "Use the windows_pagefile resource to configure pagefile settings on Windows."
+      description "Use the **windows_pagefile** resource to configure pagefile settings on Windows."
       introduced "14.0"
+      examples <<~DOC
+      **Set the system to manage pagefiles**:
+
+      ```ruby
+      windows_pagefile 'Enable automatic management of pagefiles' do
+        automatic_managed true
+      end
+      ```
+
+      **Delete a pagefile**:
+
+      ```ruby
+      windows_pagefile 'Delete the pagefile' do
+        path 'C:\pagefile.sys'
+        action :delete
+      end
+      ```
+
+      **Create a pagefile with an initial and maximum size**:
+
+      ```ruby
+      windows_pagefile 'create the pagefile' do
+        path 'C:\pagefile.sys'
+        initial_size 100
+        maximum_size 200
+      end
+      ```
+      DOC
 
       property :path, String,
         coerce: proc { |x| x.tr("/", '\\') },
@@ -34,7 +64,7 @@ class Chef
         description: "Configures whether the system manages the pagefile size."
 
       property :automatic_managed, [TrueClass, FalseClass],
-        description: "Enable automatic management of pagefile initial and maximum size. Setting this to true ignores 'initial_size' and 'maximum_size' properties.",
+        description: "Enable automatic management of pagefile initial and maximum size. Setting this to true ignores `initial_size` and `maximum_size` properties.",
         default: false
 
       property :initial_size, Integer,
@@ -81,11 +111,13 @@ class Chef
       end
 
       action_class do
+        private
+
         # make sure the provided name property matches the appropriate format
         # we do this here and not in the property itself because if automatic_managed
         # is set then this validation is not necessary / doesn't make sense at all
         def validate_name
-          return if /^.:.*.sys/ =~ new_resource.path
+          return if /^.:.*.sys/.match?(new_resource.path)
 
           raise "#{new_resource.path} does not match the format DRIVE:\\path\\file.sys for pagefiles. Example: C:\\pagefile.sys"
         end
@@ -96,7 +128,7 @@ class Chef
         # @return [Boolean]
         def exists?(pagefile)
           @exists ||= begin
-            logger.trace("Checking if #{pagefile} exists by runing: wmic.exe pagefileset where SettingID=\"#{get_setting_id(pagefile)}\" list /format:list")
+            logger.trace("Checking if #{pagefile} exists by running: wmic.exe pagefileset where SettingID=\"#{get_setting_id(pagefile)}\" list /format:list")
             cmd = shell_out("wmic.exe pagefileset where SettingID=\"#{get_setting_id(pagefile)}\" list /format:list", returns: [0])
             cmd.stderr.empty? && (cmd.stdout =~ /SettingID=#{get_setting_id(pagefile)}/i)
           end

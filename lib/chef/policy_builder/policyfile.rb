@@ -24,7 +24,7 @@ require_relative "../run_context"
 require_relative "../config"
 require_relative "../node"
 require_relative "../server_api"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   module PolicyBuilder
@@ -91,7 +91,7 @@ class Chef
         @node = nil
 
         if Chef::Config[:solo_legacy_mode]
-          raise UnsupportedFeature, "Policyfile does not support chef-solo. Use #{Chef::Dist::CLIENT} local mode instead."
+          raise UnsupportedFeature, "Policyfile does not support chef-solo. Use #{ChefUtils::Dist::Infra::CLIENT} local mode instead."
         end
 
         if override_runlist
@@ -328,7 +328,7 @@ class Chef
         end
       end
 
-      # Do some mimimal validation of the policyfile we fetched from the
+      # Do some minimal validation of the policyfile we fetched from the
       # server. Compatibility mode relies on using data bags to store policy
       # files; therefore no real validation will be performed server-side and
       # we need to make additional checks to ensure the data will be formatted
@@ -475,7 +475,7 @@ class Chef
       end
 
       # @api private
-      # Fetches the CookbookVersion object for the given name and identifer
+      # Fetches the CookbookVersion object for the given name and identifier
       # specified in the lock_data.
       # TODO: This only implements Chef 11 compatibility mode, which means that
       # cookbooks are fetched by the "dotted_decimal_identifier": a

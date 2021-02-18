@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
@@ -131,6 +132,17 @@ RSpec.describe ChefUtils::DSL::Architecture do
 
     arch_reports_true_for(:armhf?, :_32_bit?, :arm?)
   end
+  context "on armv6l" do
+    let(:arch) { "armv6l" }
+
+    arch_reports_true_for(:armhf?, :_32_bit?, :arm?)
+  end
+  context "on armv7l" do
+    let(:arch) { "armv7l" }
+
+    arch_reports_true_for(:armhf?, :_32_bit?, :arm?)
+  end
+
   context "on s390" do
     let(:arch) { "s390" }
 

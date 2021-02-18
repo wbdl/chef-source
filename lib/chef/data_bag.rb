@@ -36,10 +36,10 @@ class Chef
     RESERVED_NAMES = /^(node|role|environment|client)$/.freeze
 
     def self.validate_name!(name)
-      unless name =~ VALID_NAME
+      unless VALID_NAME.match?(name)
         raise Exceptions::InvalidDataBagName, "DataBags must have a name matching #{VALID_NAME.inspect}, you gave #{name.inspect}"
       end
-      if name =~ RESERVED_NAMES
+      if RESERVED_NAMES.match?(name)
         raise Exceptions::InvalidDataBagName, "DataBags may not have a name matching #{RESERVED_NAMES.inspect}, you gave #{name.inspect}"
       end
     end
@@ -59,12 +59,11 @@ class Chef
     end
 
     def to_h
-      result = {
+      {
         "name" => @name,
         "json_class" => self.class.name,
         "chef_type" => "data_bag",
       }
-      result
     end
 
     alias_method :to_hash, :to_h
@@ -94,7 +93,7 @@ class Chef
         names = []
         paths.each do |path|
           unless File.directory?(path)
-            raise Chef::Exceptions::InvalidDataBagPath, "Data bag path '#{path}' is invalid"
+            raise Chef::Exceptions::InvalidDataBagPath, "Data bag path '#{path}' not found. Please create this directory."
           end
 
           names += Dir.glob(File.join(
@@ -122,7 +121,7 @@ class Chef
         data_bag = {}
         paths.each do |path|
           unless File.directory?(path)
-            raise Chef::Exceptions::InvalidDataBagPath, "Data bag path '#{path}' is invalid"
+            raise Chef::Exceptions::InvalidDataBagPath, "Data bag path '#{path}' not found. Please create this directory."
           end
 
           Dir.glob(File.join(Chef::Util::PathHelper.escape_glob_dir(path, name.to_s), "*.json")).inject({}) do |bag, f|

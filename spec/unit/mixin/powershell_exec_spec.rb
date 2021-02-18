@@ -24,8 +24,37 @@ describe Chef::Mixin::PowershellExec, :windows_only do
   subject(:object) { powershell_mixin.new }
 
   describe "#powershell_exec" do
-    it "runs a basic command and returns a Chef::PowerShell object" do
-      expect(object.powershell_exec("$PSVersionTable")).to be_kind_of(Chef::PowerShell)
+    context "not specifying an interpreter" do
+      it "runs a basic command and returns a Chef::PowerShell object" do
+        expect(object.powershell_exec("$PSVersionTable")).to be_kind_of(Chef::PowerShell)
+      end
+
+      it "uses less than version 6" do
+        execution = object.powershell_exec("$PSVersionTable")
+        expect(execution.result["PSVersion"].to_s.to_i).to be < 6
+      end
+    end
+
+    context "using pwsh interpreter" do
+      it "runs a basic command and returns a Chef::PowerShell object" do
+        expect(object.powershell_exec("$PSVersionTable", :pwsh)).to be_kind_of(Chef::Pwsh)
+      end
+
+      it "uses greater than version 6" do
+        execution = object.powershell_exec("$PSVersionTable", :pwsh)
+        expect(execution.result["PSVersion"]["Major"]).to be > 6
+      end
+    end
+
+    context "using powershell interpreter" do
+      it "runs a basic command and returns a Chef::PowerShell object" do
+        expect(object.powershell_exec("$PSVersionTable", :powershell)).to be_kind_of(Chef::PowerShell)
+      end
+
+      it "uses less than version 6" do
+        execution = object.powershell_exec("$PSVersionTable", :powershell)
+        expect(execution.result["PSVersion"].to_s.to_i).to be < 6
+      end
     end
 
     it "runs a command that fails with a non-terminating error and can trap the error via .error?" do
@@ -37,17 +66,25 @@ describe Chef::Mixin::PowershellExec, :windows_only do
       execution = object.powershell_exec("this-should-error")
       expect(execution.errors).to be_a_kind_of(Array)
       expect(execution.errors[0]).to be_a_kind_of(String)
-      expect(execution.errors[0]).to include("Runtime exception: this-should-error")
+      expect(execution.errors[0]).to include("The term 'this-should-error' is not recognized")
+    end
+
+    it "raises an error if the interpreter is invalid" do
+      expect { object.powershell_exec("this-should-error", :powerfart) }.to raise_error(ArgumentError)
     end
   end
 
   describe "#powershell_exec!" do
     it "runs a basic command and returns a Chef::PowerShell object" do
-      expect(object.powershell_exec("$PSVersionTable")).to be_kind_of(Chef::PowerShell::CommandFailed)
+      expect(object.powershell_exec!("$PSVersionTable")).to be_kind_of(Chef::PowerShell)
     end
 
     it "raises an error if the command fails" do
-      expect { object.powershell_exec("$PSVersionTable") }.to raise_error(Chef::Exceptions::Script)
+      expect { object.powershell_exec!("this-should-error") }.to raise_error(Chef::PowerShell::CommandFailed)
+    end
+
+    it "raises an error if the interpreter is invalid" do
+      expect { object.powershell_exec!("this-should-error", :powerfart) }.to raise_error(ArgumentError)
     end
   end
 end

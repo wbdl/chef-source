@@ -184,7 +184,7 @@ class Chef
       # return the role level override attribute component
       attr_reader :role_override
 
-      # return the enviroment level override attribute component
+      # return the environment level override attribute component
       attr_reader :env_override
 
       # return the force override level attribute component
@@ -535,7 +535,7 @@ class Chef
         e
       end
 
-      # Deep merge all attribute levels using hash-only merging between different precidence
+      # Deep merge all attribute levels using hash-only merging between different precedence
       # levels (so override arrays completely replace arrays set at any default level).
       #
       # The path allows for selectively deep-merging a subtree of the node object.
@@ -563,11 +563,10 @@ class Chef
       # @param path [Array] Array of args to method chain to descend into the node object
       # @return [attr] Deep Merged values (may be VividMash, Hash, Array, etc) from the node object
       def merge_defaults(path)
-        ret = DEFAULT_COMPONENTS.inject(NIL) do |merged, component_ivar|
+        DEFAULT_COMPONENTS.inject(NIL) do |merged, component_ivar|
           component_value = apply_path(instance_variable_get(component_ivar), path)
           deep_merge!(merged, component_value)
         end
-        ret
       end
 
       # Deep merge the override attribute levels with array merging.
@@ -577,11 +576,10 @@ class Chef
       # @param path [Array] Array of args to method chain to descend into the node object
       # @return [attr] Deep Merged values (may be VividMash, Hash, Array, etc) from the node object
       def merge_overrides(path)
-        ret = OVERRIDE_COMPONENTS.inject(NIL) do |merged, component_ivar|
+        OVERRIDE_COMPONENTS.inject(NIL) do |merged, component_ivar|
           component_value = apply_path(instance_variable_get(component_ivar), path)
           deep_merge!(merged, component_value)
         end
-        ret
       end
 
       # needed for __path__
@@ -598,7 +596,7 @@ class Chef
           merge_with.each do |key, merge_with_value|
             value =
               if merge_onto.key?(key)
-                deep_merge!(safe_dup(merge_onto[key]), merge_with_value)
+                deep_merge!(safe_dup(merge_onto.internal_get(key)), merge_with_value)
               else
                 merge_with_value
               end
@@ -634,7 +632,7 @@ class Chef
           merge_with.each do |key, merge_with_value|
             value =
               if merge_onto.key?(key)
-                hash_only_merge!(safe_dup(merge_onto[key]), merge_with_value)
+                hash_only_merge!(safe_dup(merge_onto.internal_get(key)), merge_with_value)
               else
                 merge_with_value
               end

@@ -21,7 +21,7 @@ require_relative "../../resource/windows_package"
 require_relative "../package"
 require_relative "../../util/path_helper"
 require_relative "../../mixin/checksum"
-require "cgi" unless defined?(CGI)
+autoload :CGI, "cgi"
 
 class Chef
   class Provider
@@ -33,9 +33,16 @@ class Chef
         provides :package, os: "windows"
         provides :windows_package
 
-        require "chef/provider/package/windows/registry_uninstall_entry.rb"
+        autoload :RegistryUninstallEntry, ::File.expand_path("windows/registry_uninstall_entry.rb", __dir__)
 
         def define_resource_requirements
+          if new_resource.checksum
+            requirements.assert(:install) do |a|
+              a.assertion { new_resource.checksum == checksum(source_location) }
+              a.failure_message Chef::Exceptions::Package, "Checksum on resource (#{short_cksum(new_resource.checksum)}) does not match checksum on content (#{short_cksum(source_location)})"
+            end
+          end
+
           requirements.assert(:install) do |a|
             a.assertion { new_resource.source || msi? }
             a.failure_message Chef::Exceptions::NoWindowsPackageSource, "Source for package #{new_resource.package_name} must be specified in the resource's source property for package to be installed because the package_name property is used to test for the package installation state for this package type."
@@ -50,26 +57,14 @@ class Chef
           end
         end
 
-        # load_current_resource is run in Chef::Provider#run_action when not in whyrun_mode?
         def load_current_resource
-          @current_resource = Chef::Resource::WindowsPackage.new(new_resource.name)
-          if downloadable_file_missing?
-            logger.trace("We do not know the version of #{new_resource.source} because the file is not downloaded")
-            # FIXME: this label should not be used.  It could be set to nil.  Probably what should happen is that
-            # if the file hasn't been downloaded then load_current_resource must download the file here, and then
-            # the else clause to set current_resource.version can always be run.  Relying on a side-effect here
-            # produces at least less readable code, if not outright buggy...  (and I'm assuming that this isn't
-            # wholly just a bug -- since if we only need the package_name to determine if its installed then we
-            # need this, so I'm assuming we need to download the file to pull out the name in order to check
-            # the registry -- which it still feels like we get wrong in the sense we're forcing always downloading
-            # and then always installing(?) which violates idempotency -- and I'm having to think way too hard
-            # about this and would need to go surfing around the code to determine what actually happens, probably
-            # in every different package_provider...)
-            current_resource.version(:unknown.to_s)
-          else
-            current_resource.version(package_provider.installed_version)
-            new_resource.version(package_provider.package_version) if package_provider.package_version
+          if uri_scheme?(new_resource.source) && action == :install
+            download_source_file
           end
+
+          @current_resource = Chef::Resource::WindowsPackage.new(new_resource.name)
+          current_resource.version(package_provider.installed_version)
+          new_resource.version(package_provider.package_version) if package_provider.package_version
 
           current_resource
         end
@@ -139,17 +134,6 @@ class Chef
           end
         end
 
-        action :install do
-          if uri_scheme?(new_resource.source)
-            download_source_file
-            load_current_resource
-          else
-            validate_content!
-          end
-
-          super
-        end
-
         # Chef::Provider::Package action_install + action_remove call install_package + remove_package
         # Pass those calls to the correct sub-provider
         def install_package(name, version)
@@ -185,7 +169,7 @@ class Chef
         # is not multipackage.  The existing implementation of package_provider.installed_version should probably
         # be what `uninstall_version_array` is, and then that list should be sorted and last/first'd into the
         # current_resource.version.  The current_version_array method was not intended to be overwritten by
-        # sublasses (but ruby provides no feature to block doing so -- it is already marked as private).
+        # subclasses (but ruby provides no feature to block doing so -- it is already marked as private).
         #
         def current_version_array
           [ current_resource.version ]
@@ -245,6 +229,7 @@ class Chef
         end
 
         def resource_for_provider
+          # XXX: this is crazy
           @resource_for_provider = Chef::Resource::WindowsPackage.new(new_resource.name).tap do |r|
             r.source(Chef::Util::PathHelper.validate_path(source_location)) unless source_location.nil?
             r.cookbook_name = new_resource.cookbook_name
@@ -258,19 +243,23 @@ class Chef
 
         def download_source_file
           source_resource.run_action(:create)
-          logger.trace("#{new_resource} fetched source file to #{source_resource.path}")
+          logger.trace("#{new_resource} fetched source file to #{default_download_cache_path}")
         end
 
         def source_resource
-          @source_resource ||= Chef::Resource::RemoteFile.new(default_download_cache_path, run_context).tap do |r|
-            r.source(new_resource.source)
-            r.cookbook_name = new_resource.cookbook_name
-            r.checksum(new_resource.checksum)
-            r.backup(false)
+          # It seems correct that this is a build_resource rather than declare_resource/DSL use since updating should not trigger a notification
+          # unless the downloaded file is actually installed.  The case where the remote_file downloads the package but the package is already
+          # installed on the target should not trigger a notification since the running state did not change.
+          @source_resource ||= build_resource(:remote_file, default_download_cache_path) do
+            source(new_resource.source)
+            cookbook_name = new_resource.cookbook_name
+            checksum(new_resource.checksum)
+            backup(false)
 
+            # since the source_resource can mutate here, we save off the @source_resource so we can inspect the actual state later
             if new_resource.remote_file_attributes
               new_resource.remote_file_attributes.each do |(k, v)|
-                r.send(k.to_sym, v)
+                send(k.to_sym, v)
               end
             end
           end
@@ -291,15 +280,6 @@ class Chef
           else
             new_source = Chef::Util::PathHelper.cleanpath(new_resource.source)
             ::File.exist?(new_source) ? new_source : nil
-          end
-        end
-
-        def validate_content!
-          if new_resource.checksum
-            source_checksum = checksum(source_location)
-            if new_resource.checksum.downcase != source_checksum
-              raise Chef::Exceptions::ChecksumMismatch.new(short_cksum(new_resource.checksum), short_cksum(source_checksum))
-            end
           end
         end
 

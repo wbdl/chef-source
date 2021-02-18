@@ -16,13 +16,13 @@
 # limitations under the License.
 #
 
-require "zlib"
+require "zlib" unless defined?(Zlib)
 require_relative "http_request"
 
 class Chef
   class HTTP
 
-    # Middleware-esque class for handling compression in HTTP responses.
+    # Middleware-ish class for handling compression in HTTP responses.
     class Decompressor
       class NoopInflater
         def inflate(chunk)

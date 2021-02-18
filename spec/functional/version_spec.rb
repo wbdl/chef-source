@@ -15,17 +15,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require_relative "../spec_helper"
+require "spec_helper"
 require "chef/mixin/shell_out"
 require "chef/version"
 require "ohai/version"
-require "chef/dist"
+require "chef-utils/dist"
 
 describe "Chef Versions", :executables do
   include Chef::Mixin::ShellOut
-  let(:chef_dir) { File.join(File.dirname(__FILE__), "..", "..") }
+  let(:chef_dir) { File.join(__dir__, "..", "..") }
 
-  binaries = [ Chef::Dist::CLIENT, "chef-shell", "chef-apply", "knife", Chef::Dist::SOLOEXEC ]
+  binaries = [ ChefUtils::Dist::Infra::CLIENT, "chef-shell", "chef-apply", "knife", ChefUtils::Dist::Solo::EXEC ]
 
   binaries.each do |binary|
     it "#{binary} version should be sane" do

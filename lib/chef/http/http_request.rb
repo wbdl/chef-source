@@ -20,10 +20,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-require "uri" unless defined?(URI)
-require "cgi" unless defined?(CGI)
-require "net/http" unless defined?(Net::HTTP)
-require_relative "../dist"
+autoload :URI, "uri"
+autoload :CGI, "cgi"
+module Net
+  autoload :HTTP, "net/http"
+end
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 # To load faster, we only want ohai's version string.
 # However, in ohai before 0.6.0, the version is defined
@@ -42,7 +44,7 @@ class Chef
 
       engine = defined?(RUBY_ENGINE) ? RUBY_ENGINE : "ruby"
 
-      UA_COMMON = "/#{::Chef::VERSION} (#{engine}-#{RUBY_VERSION}-p#{RUBY_PATCHLEVEL}; ohai-#{Ohai::VERSION}; #{RUBY_PLATFORM}; +#{Chef::Dist::WEBSITE})".freeze
+      UA_COMMON = "/#{::Chef::VERSION} (#{engine}-#{RUBY_VERSION}-p#{RUBY_PATCHLEVEL}; ohai-#{Ohai::VERSION}; #{RUBY_PLATFORM}; +#{ChefUtils::Dist::Org::WEBSITE})".freeze
       DEFAULT_UA = "Chef Client" << UA_COMMON
 
       USER_AGENT = "User-Agent".freeze
@@ -128,7 +130,7 @@ class Chef
       rescue NoMethodError => e
         # http://redmine.ruby-lang.org/issues/show/2708
         # http://redmine.ruby-lang.org/issues/show/2758
-        if e.to_s =~ /#{Regexp.escape(%q{undefined method `closed?' for nil:NilClass})}/
+        if /#{Regexp.escape(%q{undefined method `closed?' for nil:NilClass})}/.match?(e.to_s)
           Chef::Log.trace("Rescued error in http connect, re-raising as Errno::ECONNREFUSED to hide bug in net/http")
           Chef::Log.trace("#{e.class.name}: #{e}")
           Chef::Log.trace(e.backtrace.join("\n"))

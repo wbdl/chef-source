@@ -17,7 +17,6 @@
 #
 
 require "spec_helper"
-require "functional/resource/base"
 require "chef/mixin/shell_out"
 
 describe Chef::Resource::ZypperPackage, :requires_root, :suse_only do
@@ -50,6 +49,10 @@ describe Chef::Resource::ZypperPackage, :requires_root, :suse_only do
   after(:all) do
     shell_out!("rpm -qa --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' chef_rpm | xargs -r rpm -e")
     FileUtils.rm_f "/etc/zypp/repos.d/chef-zypp-localtesting.repo"
+  end
+
+  let(:run_context) do
+    Chef::RunContext.new(Chef::Node.new, {}, Chef::EventDispatch::Dispatcher.new)
   end
 
   let(:package_name) { "chef_rpm" }
@@ -92,6 +95,17 @@ describe Chef::Resource::ZypperPackage, :requires_root, :suse_only do
       zypper_package.run_action(:install)
       expect(zypper_package.updated_by_last_action?).to be false
       expect(shell_out("rpm -q --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' chef_rpm").stdout.chomp).to match("^chef_rpm-1.2-1.#{pkg_arch}$")
+    end
+
+    it "multipackage installs which result in nils from the superclass" do
+      # this looks weird, it tests an internal condition of the allow_nils behavior where the arrays passed to install_package will have
+      # nil values, and ensures that doesn't wind up creating weirdness in the resulting shell_out that causes it to fail
+      preinstall("chef_rpm-1.2-1.#{pkg_arch}.rpm")
+      zypper_package.package_name(%w{chef_rpm chef_rpm})
+      zypper_package.version(["1.2", "1.10"])
+      zypper_package.run_action(:install)
+      expect(zypper_package.updated_by_last_action?).to be true
+      expect(shell_out("rpm -q --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' chef_rpm").stdout.chomp).to match("^chef_rpm-1.10-1.#{pkg_arch}$")
     end
   end
 

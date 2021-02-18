@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
 #
@@ -14,6 +15,6 @@
 # limitations under the License.
 
 module ChefUtils
-  CHEFUTILS_ROOT = File.expand_path("../..", __FILE__)
-  VERSION = "16.0.253".freeze
+  CHEFUTILS_ROOT = File.expand_path("..", __dir__)
+  VERSION = "17.0.109"
 end

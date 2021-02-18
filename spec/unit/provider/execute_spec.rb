@@ -26,7 +26,7 @@ describe Chef::Provider::Execute do
   let(:provider) { Chef::Provider::Execute.new(new_resource, run_context) }
   let(:current_resource) { Chef::Resource::Ifconfig.new("foo_resource", run_context) }
   # You will be the same object, I promise.
-  @live_stream = Chef::EventDispatch::EventsOutputStream.new(run_context.events, name: :execute)
+  @live_stream = Chef::EventDispatch::EventsOutputStream.new(Chef::EventDispatch::Dispatcher.new, name: :execute)
 
   let(:opts) do
     {
@@ -43,15 +43,8 @@ describe Chef::Provider::Execute do
   before do
     allow(Chef::EventDispatch::EventsOutputStream).to receive(:new) { @live_stream }
     allow(ChefUtils).to receive(:windows?) { false }
-    @original_log_level = Chef::Log.level
     Chef::Log.level = :info
     allow(STDOUT).to receive(:tty?).and_return(false)
-  end
-
-  after do
-    Chef::Log.level = @original_log_level
-    Chef::Config[:always_stream_execute] = false
-    Chef::Config[:daemon] = false
   end
 
   describe "#initialize" do

@@ -25,11 +25,66 @@ class Chef
       provides(:sysctl) { true }
       provides(:sysctl_param) { true }
 
-      description "Use the sysctl resource to set or remove kernel parameters using the sysctl"\
-                  " command line tool and configuration files in the system's sysctl.d directory. "\
-                  "Configuration files managed by this resource are named 99-chef-KEYNAME.conf. If"\
-                  " an existing value was already set for the value it will be backed up to the node"\
-                  " and restored if the :remove action is used later."
+      description "Use the **sysctl** resource to set or remove kernel parameters using the `sysctl` command line tool and configuration files in the system's `sysctl.d` directory. Configuration files managed by this resource are named `99-chef-KEYNAME.conf`."
+      examples <<~DOC
+      **Set vm.swappiness**:
+
+      ```ruby
+      sysctl 'vm.swappiness' do
+        value 19
+      end
+      ```
+
+      **Remove kernel.msgmax**:
+
+      **Note**: This only removes the sysctl.d config for kernel.msgmax. The value will be set back to the kernel default value.
+
+      ```ruby
+      sysctl 'kernel.msgmax' do
+        action :remove
+      end
+      ```
+
+      **Adding Comments to sysctl configuration files**:
+
+      ```ruby
+      sysctl 'vm.swappiness' do
+        value 19
+        comment "define how aggressively the kernel will swap memory pages."
+      end
+      ```
+
+      This produces /etc/sysctl.d/99-chef-vm.swappiness.conf as follows:
+
+      ```
+      # define how aggressively the kernel will swap memory pages.
+      vm.swappiness = 1
+      ```
+
+      **Converting sysctl settings from shell scripts**:
+
+      Example of existing settings:
+
+      ```bash
+      fs.aio-max-nr = 1048576 net.ipv4.ip_local_port_range = 9000 65500 kernel.sem = 250 32000 100 128
+      ```
+
+      Converted to sysctl resources:
+
+      ```ruby
+      sysctl 'fs.aio-max-nr' do
+        value '1048576'
+      end
+
+      sysctl 'net.ipv4.ip_local_port_range' do
+        value '9000 65500'
+      end
+
+      sysctl 'kernel.sem' do
+        value '250 32000 100 128'
+      end
+      ```
+      DOC
 
       introduced "14.0"
 
@@ -44,7 +99,7 @@ class Chef
       property :value, [Array, String, Integer, Float],
         description: "The value to set.",
         coerce: proc { |v| coerce_value(v) },
-        required: true
+        required: [:apply]
 
       property :comment, [Array, String],
         description: "Comments, placed above the resource setting in the generated file. For multi-line comments, use an array of strings, one per line.",
@@ -69,16 +124,14 @@ class Chef
       end
 
       load_current_value do
-        begin
-          value get_sysctl_value(key)
-        rescue
-          current_value_does_not_exist!
-        end
+
+        value get_sysctl_value(key)
+      rescue
+        current_value_does_not_exist!
+
       end
 
-      action :apply do
-        description "Apply a sysctl value."
-
+      action :apply, description: "Apply a sysctl value" do
         converge_if_changed do
           # set it temporarily
           set_sysctl_param(new_resource.key, new_resource.value)
@@ -97,9 +150,7 @@ class Chef
         end
       end
 
-      action :remove do
-        description "Remove a sysctl value."
-
+      action :remove, description: "Remove a sysctl value" do
         # only converge the resource if the file actually exists to delete
         if ::File.exist?("#{new_resource.conf_dir}/99-chef-#{new_resource.key.tr("/", ".")}.conf")
           converge_by "removing sysctl config at #{new_resource.conf_dir}/99-chef-#{new_resource.key.tr("/", ".")}.conf" do

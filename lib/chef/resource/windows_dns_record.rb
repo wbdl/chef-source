@@ -21,6 +21,8 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsDnsRecord < Chef::Resource
+      unified_mode true
+
       provides :windows_dns_record
 
       description "The windows_dns_record resource creates a DNS record for the given domain."
@@ -42,23 +44,36 @@ class Chef
         description: "The type of record to create, can be either ARecord, CNAME or PTR.",
         default: "ARecord", equal_to: %w{ARecord CNAME PTR}
 
-      action :create do
-        description "Creates and updates the DNS entry."
+      property :dns_server, String,
+        description: "The name of the DNS server on which to create the record.",
+        default: "localhost",
+        introduced: "16.3"
 
-        powershell_package "xDnsServer" do
+      action :create, description: "Creates and updates the DNS entry" do
+        windows_feature "RSAT-DNS-Server" do
+          not_if new_resource.dns_server.casecmp?("localhost")
         end
-        do_it "Present"
+
+        powershell_package "xDnsServer"
+
+        run_dsc_resource "Present"
       end
 
-      action :delete do
-        description "Deletes a DNS entry."
-        powershell_package "xDnsServer" do
+      action :delete, description: "Deletes a DNS entry" do
+        windows_feature "RSAT-DNS-Server" do
+          not_if new_resource.dns_server.casecmp?("localhost")
         end
-        do_it "Absent"
+
+        powershell_package "xDnsServer"
+
+        run_dsc_resource "Absent"
       end
 
       action_class do
-        def do_it(ensure_prop)
+        private
+
+        # @api private
+        def run_dsc_resource(ensure_prop)
           dsc_resource "xDnsRecord #{new_resource.record_name}.#{new_resource.zone} #{ensure_prop}" do
             module_name "xDnsServer"
             resource :xDnsRecord
@@ -67,6 +82,7 @@ class Chef
             property :Zone, new_resource.zone
             property :Type, new_resource.record_type
             property :Target, new_resource.target
+            property :DnsServer, new_resource.dns_server
           end
         end
       end

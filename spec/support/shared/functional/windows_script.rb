@@ -39,11 +39,11 @@ shared_context Chef::Resource::WindowsScript do
   end
 
   before(:each) do
-    File.delete(script_output_path) if File.exists?(script_output_path)
+    File.delete(script_output_path) if File.exist?(script_output_path)
   end
 
   after(:each) do
-    File.delete(script_output_path) if File.exists?(script_output_path)
+    File.delete(script_output_path) if File.exist?(script_output_path)
   end
 
   shared_examples_for "a script resource with architecture attribute" do
@@ -91,7 +91,7 @@ shared_context Chef::Resource::WindowsScript do
       end
 
       context "when the guard's architecture is specified as 64-bit" do
-        let (:guard_architecture) { :x86_64 }
+        let(:guard_architecture) { :x86_64 }
         it "executes a 64-bit guard", :windows64_only do
           resource.only_if resource_guard_command, architecture: guard_architecture
           resource.run_action(:run)
@@ -100,7 +100,7 @@ shared_context Chef::Resource::WindowsScript do
       end
 
       context "when the guard's architecture is specified as 32-bit" do
-        let (:guard_architecture) { :i386 }
+        let(:guard_architecture) { :i386 }
         it "executes a 32-bit guard" do
           resource.only_if resource_guard_command, architecture: guard_architecture
           resource.run_action(:run)
@@ -138,7 +138,7 @@ shared_context Chef::Resource::WindowsScript do
 
       after do
         script_file.close! if script_file
-        ::File.delete(script_file.to_path) if script_file && ::File.exists?(script_file.to_path)
+        ::File.delete(script_file.to_path) if script_file && ::File.exist?(script_file.to_path)
       end
 
       include_context "alternate user identity"
@@ -146,7 +146,7 @@ shared_context Chef::Resource::WindowsScript do
       shared_examples_for "a script whose file system location cannot be accessed by other non-admin users" do
         let(:ruby_access_command) { file_access_command }
         it "generates a script in the local file system that prevents read access to other non-admin users" do
-          shell_out!(access_command, { user: windows_nonadmin_user, password: windows_nonadmin_user_password, returns: [access_denied_sentinel] })
+          shell_out!(access_command, user: windows_nonadmin_user, password: windows_nonadmin_user_password, returns: [access_denied_sentinel])
         end
       end
 

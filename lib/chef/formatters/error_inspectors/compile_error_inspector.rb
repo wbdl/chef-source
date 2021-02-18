@@ -41,7 +41,7 @@ class Chef
 
           if found_error_in_cookbooks?
             traceback = filtered_bt.map { |line| "  #{line}" }.join("\n")
-            error_description.section("Cookbook Trace:", traceback)
+            error_description.section("Cookbook Trace: (most recent call first)", traceback)
             error_description.section("Relevant File Content:", context)
           end
 
@@ -115,14 +115,14 @@ class Chef
 
         def culprit_line
           @culprit_line ||= begin
-            line_number = culprit_backtrace_entry[/^(?:.\:)?[^:]+:([\d]+)/, 1].to_i
+            line_number = culprit_backtrace_entry[/^(?:.\:)?[^:]+:(\d+)/, 1].to_i
             Chef::Log.trace("Line number of compile error: '#{line_number}'")
             line_number
           end
         end
 
         def culprit_file
-          @culprit_file ||= culprit_backtrace_entry[/^((?:.\:)?[^:]+):([\d]+)/, 1]
+          @culprit_file ||= culprit_backtrace_entry[/^((?:.\:)?[^:]+):(\d+)/, 1]
         end
 
         def filtered_bt

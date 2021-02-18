@@ -22,7 +22,7 @@ describe "notifications" do
   include IntegrationSupport
   include Chef::Mixin::ShellOut
 
-  let(:chef_dir) { File.expand_path("../../../../bin", __FILE__) }
+  let(:chef_dir) { File.expand_path("../../../bin", __dir__) }
   let(:chef_client) { "bundle exec chef-client --minimal-ohai" }
 
   when_the_repository "notifies a nameless resource" do
@@ -416,7 +416,7 @@ describe "notifications" do
       EOM
 
       result = shell_out("#{chef_client} -c \"#{path_to("config/client.rb")}\" --no-color -F doc -o 'x::default'", cwd: chef_dir)
-      expect(result.stdout).to match /\* log\[a, b\] action write/
+      expect(result.stdout).to match(/\* log\[a, b\] action write/)
       result.error!
     end
 

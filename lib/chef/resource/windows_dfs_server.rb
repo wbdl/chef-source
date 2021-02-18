@@ -21,9 +21,11 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsDfsServer < Chef::Resource
+      unified_mode true
+
       provides :windows_dfs_server
 
-      description "The windows_dfs_server resource sets system-wide DFS settings."
+      description "Use the **windows_dfs_server** resource to set system-wide DFS settings."
       introduced "15.0"
 
       property :use_fqdn, [TrueClass, FalseClass],
@@ -47,14 +49,14 @@ class Chef
         default: 3600
 
       load_current_value do
-        ps_results = powershell_out("Get-DfsnServerConfiguration -ComputerName '#{ENV["COMPUTERNAME"]}' | Select LdapTimeoutSec, PreferLogonDC, EnableSiteCostedReferrals, SyncIntervalSec, UseFqdn | ConvertTo-Json")
+        ps_results = powershell_exec("Get-DfsnServerConfiguration -ComputerName '#{ENV["COMPUTERNAME"]}' | Select LdapTimeoutSec, PreferLogonDC, EnableSiteCostedReferrals, SyncIntervalSec, UseFqdn")
 
         if ps_results.error?
-          raise "The dfs_server resource failed to fetch the current state via the Get-DfsnServerConfiguration PowerShell cmlet. Is the DFS Windows feature installed?"
+          raise "The dfs_server resource failed to fetch the current state via the Get-DfsnServerConfiguration PowerShell cmdlet. Is the DFS Windows feature installed?"
         end
 
-        Chef::Log.debug("The Get-DfsnServerConfiguration results were #{ps_results.stdout}")
-        results = Chef::JSONCompat.from_json(ps_results.stdout)
+        Chef::Log.debug("The Get-DfsnServerConfiguration results were #{ps_results.result}")
+        results = ps_results.result
 
         use_fqdn results["UseFqdn"] || false
         ldap_timeout_secs results["LdapTimeoutSec"]
@@ -63,11 +65,12 @@ class Chef
         sync_interval_secs results["SyncIntervalSec"]
       end
 
-      action :configure do
-        description "Configure DFS settings."
-
+      action :configure, description: "Configure DFS settings" do
         converge_if_changed do
-          powershell_out("Set-DfsnServerConfiguration -ComputerName '#{ENV["COMPUTERNAME"]}' EnableSiteCostedReferrals $#{new_resource.enable_site_costed_referrals} -UseFqdn $#{new_resource.use_fqdn} -LdapTimeoutSec #{new_resource.ldap_timeout_secs} -PreferLogonDC $#{new_resource.prefer_login_dc} -SyncIntervalSec #{new_resource.sync_interval_secs}")
+          dfs_cmd = "Set-DfsnServerConfiguration -ComputerName '#{ENV["COMPUTERNAME"]}' -UseFqdn $#{new_resource.use_fqdn} -LdapTimeoutSec #{new_resource.ldap_timeout_secs} -SyncIntervalSec #{new_resource.sync_interval_secs}"
+          dfs_cmd << " -EnableSiteCostedReferrals $#{new_resource.enable_site_costed_referrals}" if new_resource.enable_site_costed_referrals != current_resource.enable_site_costed_referrals
+          dfs_cmd << " -PreferLogonDC $#{new_resource.prefer_login_dc}" if new_resource.prefer_login_dc != current_resource.prefer_login_dc
+          powershell_exec!(dfs_cmd)
         end
       end
     end

@@ -26,43 +26,56 @@ class Chef
 
       provides :powershell_script
 
-      def initialize(new_resource, run_context)
-        super(new_resource, run_context, ".ps1")
-        add_exit_status_wrapper
-      end
-
       action :run do
         validate_script_syntax!
         super()
       end
 
+      # Set InputFormat to None as PowerShell will hang if STDIN is redirected
+      # http://connect.microsoft.com/PowerShell/feedback/details/572313/powershell-exe-can-hang-if-stdin-is-redirected
+      DEFAULT_FLAGS = "-NoLogo -NonInteractive -NoProfile -ExecutionPolicy Bypass -InputFormat None".freeze
+
       def command
-        basepath = is_forced_32bit ? wow64_directory : run_context.node["kernel"]["os_info"]["system_directory"]
-
-        # Powershell.exe is always in "v1.0" folder (for backwards compatibility)
-        interpreter_path = Chef::Util::PathHelper.join(basepath, "WindowsPowerShell", "v1.0", interpreter)
-
         # Must use -File rather than -Command to launch the script
         # file created by the base class that contains the script
         # code -- otherwise, powershell.exe does not propagate the
         # error status of a failed Windows process that ran at the
         # end of the script, it gets changed to '1'.
         #
-        "\"#{interpreter_path}\" #{new_resource.flags} -File \"#{script_file.path}\""
+        [
+          %Q{"#{interpreter_path}"},
+          DEFAULT_FLAGS,
+          new_resource.flags,
+          %Q{-File "#{script_file_path}"},
+        ].join(" ")
       end
 
       protected
 
-      # Process exit codes are strange with PowerShell and require
-      # special handling to cover common use cases.
-      def add_exit_status_wrapper
-        self.code = wrapper_script
+      def interpreter_path
+        # Powershell.exe is always in "v1.0" folder (for backwards compatibility)
+        # pwsh is the other interpreter and we will assume that it is on the path.
+        # It will exist in different folders depending on the installed version.
+        # There can also be multiple versions installed. Depending on how it was installed,
+        # there might be a registry entry pointing to the installation path. The key will
+        # differ depending on version and architecture. It seems best to let the PATH
+        # determine the file path to use since that will provide the same pwsh.exe one
+        # would invoke from any shell.
+        if interpreter == "powershell"
+          Chef::Util::PathHelper.join(basepath, "WindowsPowerShell", "v1.0", "#{interpreter}.exe")
+        else
+          interpreter
+        end
+      end
+
+      def code
+        code = wrapper_script
         logger.trace("powershell_script provider called with script code:\n\n#{new_resource.code}\n")
         logger.trace("powershell_script provider will execute transformed code:\n\n#{code}\n")
+        code
       end
 
       def validate_script_syntax!
-        interpreter_arguments = new_resource.flags
         Tempfile.open(["chef_powershell_script-user-code", ".ps1"]) do |user_script_file|
           # Wrap the user's code in a PowerShell script block so that
           # it isn't executed. However, syntactically invalid script
@@ -80,7 +93,12 @@ class Chef
           # written to the file system at this point, which is required since
           # the intent is to execute the code just written to it.
           user_script_file.close
-          validation_command = "\"#{interpreter}\" #{interpreter_arguments} -Command \". '#{user_script_file.path}'\""
+          validation_command = [
+            %Q{"#{interpreter_path}"},
+            DEFAULT_FLAGS,
+            new_resource.flags,
+            %Q{-Command ". '#{user_script_file.path}'"},
+          ].join(" ")
 
           # Note that other script providers like bash allow syntax errors
           # to be suppressed by setting 'returns' to a value that the
@@ -94,11 +112,13 @@ class Chef
           # means a non-zero return and thus a syntactically invalid script.
 
           with_os_architecture(node, architecture: new_resource.architecture) do
-            shell_out!(validation_command, { returns: [0] })
+            shell_out!(validation_command, returns: [0])
           end
         end
       end
 
+      # Process exit codes are strange with PowerShell and require
+      # special handling to cover common use cases.
       # A wrapper script is used to launch user-supplied script while
       # still obtaining useful process exit codes. Unless you
       # explicitly call exit in PowerShell, the powershell.exe
@@ -182,6 +202,9 @@ class Chef
         EOH
       end
 
+      def script_extension
+        ".ps1"
+      end
     end
   end
 end

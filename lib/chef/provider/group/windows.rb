@@ -17,7 +17,7 @@
 #
 
 require_relative "../user"
-if RUBY_PLATFORM =~ /mswin|mingw32|windows/
+if RUBY_PLATFORM.match?(/mswin|mingw32|windows/)
   require_relative "../../util/windows/net_group"
 end
 
@@ -31,6 +31,17 @@ class Chef
         def initialize(new_resource, run_context)
           super
           @net_group = Chef::Util::Windows::NetGroup.new(new_resource.group_name)
+        end
+
+        def group_members_match?
+          sorted_members_sids = new_resource.members.map { |x| lookup_account_name(x) }.sort
+          sorted_current_sids = current_resource.members.sort
+          Chef::Log.debug("#{new_resource.name}: current_members: #{sorted_current_sids} vs new_members #{sorted_members_sids}")
+          sorted_members_sids == sorted_current_sids
+        end
+
+        def group_gid_match?
+          true
         end
 
         def load_current_resource
@@ -74,7 +85,7 @@ class Chef
               members_to_be_removed << member if has_current_group_member?(member)
             end
             @net_group.local_delete_members(members_to_be_removed) unless members_to_be_removed.empty?
-          else
+          elsif !group_members_match?
             @net_group.local_set_members(new_resource.members)
           end
           @net_group.local_group_set_info(new_resource.comment) if new_resource.comment

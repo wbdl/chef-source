@@ -18,68 +18,44 @@
 
 require "spec_helper"
 describe Chef::Provider::PowershellScript, "action_run" do
-
-  let(:powershell_version) { nil }
-  let(:node) do
-    node = Chef::Node.new
-    node.default["kernel"] = {}
-    node.default["kernel"][:machine] = :x86_64.to_s
-    unless powershell_version.nil?
-      node.default[:languages] = { powershell: { version: powershell_version } }
-    end
-    node
-  end
-
-  # code block is mandatory for the powershell provider
-  let(:code) { "" }
-
   let(:events) { Chef::EventDispatch::Dispatcher.new }
 
-  let(:run_context) { run_context = Chef::RunContext.new(node, {}, events) }
+  let(:run_context) { Chef::RunContext.new(Chef::Node.new, {}, events) }
 
   let(:new_resource) do
-    new_resource = Chef::Resource::PowershellScript.new("run some powershell code", run_context)
-    new_resource.code code
-    new_resource
-  end
-
-  def set_user_defined_flag
-    new_resource.flags "-ExecutionPolicy RemoteSigned"
-    provider
+    Chef::Resource::PowershellScript.new("run some powershell code", run_context)
   end
 
   let(:provider) do
     Chef::Provider::PowershellScript.new(new_resource, run_context)
   end
 
-  context "when setting interpreter flags" do
+  describe "#command" do
     before(:each) do
-      allow(provider).to receive(:is_forced_32bit).and_return(false)
-      os_info_double = double("os_info")
-      allow(provider.run_context.node["kernel"]).to receive(:[]).with("os_info").and_return(os_info_double)
-      allow(os_info_double).to receive(:[]).with("system_directory").and_return("C:\\Windows\\system32")
+      allow(provider).to receive(:basepath).and_return("C:\\Windows\\system32")
+      allow(ChefUtils).to receive(:windows?).and_return(true)
     end
 
-    it "sets the -File flag as the last flag" do
-      flags = provider.command.split(" ").keep_if { |flag| flag =~ /^-/ }
-      expect(flags.pop).to eq("-File")
+    it "includes the user's flags after the default flags when building the command" do
+      new_resource.flags = "-InputFormat Fabulous"
+      provider.send(:script_file_path=, "C:\\Temp\\Script.ps1")
+
+      expected = <<~CMD.strip
+        "C:\\Windows\\system32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoLogo -NonInteractive -NoProfile -ExecutionPolicy Bypass -InputFormat None -InputFormat Fabulous -File "C:\\Temp\\Script.ps1"
+      CMD
+
+      expect(provider.command).to eq(expected)
     end
 
-    let(:execution_policy_flag) do
-      provider_flags = provider.flags.split(" ")
-      # Last occurance of "executionpolicy"
-      execution_policy_index = provider_flags.map(&:downcase).rindex("-executionpolicy")
+    it "uses pwsh when given the pwsh interpreter" do
+      new_resource.interpreter = "pwsh"
+      provider.send(:script_file_path=, "C:\\Temp\\Script.ps1")
 
-      execution_policy_index ? provider_flags[execution_policy_index + 1] : nil
-    end
+      expected = <<~CMD.strip
+        "pwsh" -NoLogo -NonInteractive -NoProfile -ExecutionPolicy Bypass -InputFormat None  -File "C:\\Temp\\Script.ps1"
+      CMD
 
-    it "sets default -ExecutionPolicy flag to 'Bypass'" do
-      expect(execution_policy_flag).to eq("Bypass")
-    end
-
-    it "sets user defined -ExecutionPolicy flag to 'RemoteSigned'" do
-      set_user_defined_flag
-      expect(execution_policy_flag).to eq("RemoteSigned")
+      expect(provider.command).to eq(expected)
     end
   end
 end

@@ -24,6 +24,7 @@ class Chef
 
     attr_reader :result
     attr_reader :errors
+    attr_reader :verbose
 
     # Run a command under PowerShell via FFI
     # This implementation requires the managed dll and native wrapper to be in the library search
@@ -34,8 +35,12 @@ class Chef
     # @param script [String] script to run
     # @return [Object] output
     def initialize(script)
-      raise "Chef::PowerShell can only be used on the Windows platform." unless RUBY_PLATFORM =~ /mswin|mingw32|windows/
-
+      # This Powershell DLL source lives here: https://github.com/chef/chef-powershell-shim
+      # Every merge into that repo triggers a Habitat build and promotion. Running
+      # the rake :update_chef_exec_dll task in this (chef/chef) repo will pull down
+      # the built packages and copy the binaries to distro/ruby_bin_folder. Bundle install
+      # ensures that the correct architecture binaries are installed into the path.
+      @dll ||= "Chef.PowerShell.Wrapper.dll"
       exec(script)
     end
 
@@ -59,15 +64,16 @@ class Chef
       raise Chef::PowerShell::CommandFailed, "Unexpected exit in PowerShell command: #{@errors}" if error?
     end
 
-    private
+    protected
 
     def exec(script)
-      FFI.ffi_lib "Chef.PowerShell.Wrapper.dll"
+      FFI.ffi_lib @dll
       FFI.attach_function :execute_powershell, :ExecuteScript, [:string], :pointer
       execution = FFI.execute_powershell(script).read_utf16string
       hashed_outcome = Chef::JSONCompat.parse(execution)
       @result = Chef::JSONCompat.parse(hashed_outcome["result"])
       @errors = hashed_outcome["errors"]
+      @verbose = hashed_outcome["verbose"]
     end
   end
 end

@@ -24,14 +24,14 @@ module Shell
   IRB = nil unless defined? IRB
 end
 
-$LOAD_PATH.unshift File.expand_path("../..", __FILE__)
+$LOAD_PATH.unshift File.expand_path("..", __dir__)
 
-$LOAD_PATH.unshift File.expand_path("../../chef-config/lib", __FILE__)
-$LOAD_PATH.unshift File.expand_path("../../chef-utils/lib", __FILE__)
+$LOAD_PATH.unshift File.expand_path("../chef-config/lib", __dir__)
+$LOAD_PATH.unshift File.expand_path("../chef-utils/lib", __dir__)
 
 require "rubygems"
 require "rspec/mocks"
-
+require "rexml/document"
 require "webmock/rspec"
 
 require "chef"
@@ -68,7 +68,7 @@ end
 
 # If you want to load anything into the testing environment
 # without versioning it, add it to spec/support/local_gems.rb
-require "spec/support/local_gems.rb" if File.exists?(File.join(File.dirname(__FILE__), "support", "local_gems.rb"))
+require "spec/support/local_gems" if File.exist?(File.join(File.dirname(__FILE__), "support", "local_gems.rb"))
 
 # Explicitly require spec helpers that need to load first
 require "spec/support/platform_helpers"
@@ -87,7 +87,7 @@ Dir["spec/support/**/*.rb"]
   .each { |f| require f }
 
 OHAI_SYSTEM = Ohai::System.new
-OHAI_SYSTEM.all_plugins(["platform", "hostname", "languages/powershell"])
+OHAI_SYSTEM.all_plugins(["platform", "hostname", "languages/powershell", "uptime"])
 
 test_node = Chef::Node.new
 test_node.automatic["os"] = (OHAI_SYSTEM["os"] || "unknown_os").dup.freeze
@@ -116,6 +116,7 @@ RSpec.configure do |config|
   config.include(MockShellout::RSpec)
   config.filter_run focus: true
   config.filter_run_excluding external: true
+  config.raise_on_warning = true
 
   # Explicitly disable :should syntax
   # And set max_formatted_output_length to nil to prevent RSpec from doing truncation.
@@ -125,6 +126,7 @@ RSpec.configure do |config|
   end
   config.mock_with :rspec do |c|
     c.syntax = :expect
+    c.allow_message_expectations_on_nil = false
   end
 
   # Only run these tests on platforms that are also chef workstations
@@ -139,9 +141,8 @@ RSpec.configure do |config|
 
   config.filter_run_excluding windows_only: true unless windows?
   config.filter_run_excluding not_supported_on_windows: true if windows?
-  config.filter_run_excluding not_supported_on_macos: true if mac_osx?
-  config.filter_run_excluding macos_only: true unless mac_osx?
-  config.filter_run_excluding macos_1014: true unless mac_osx_1014?
+  config.filter_run_excluding not_supported_on_macos: true if macos?
+  config.filter_run_excluding macos_only: true unless macos?
   config.filter_run_excluding not_supported_on_aix: true if aix?
   config.filter_run_excluding not_supported_on_solaris: true if solaris?
   config.filter_run_excluding not_supported_on_gce: true if gce?
@@ -156,12 +157,8 @@ RSpec.configure do |config|
   config.filter_run_excluding windows_powershell_no_dsc_only: true if windows_powershell_dsc?
   config.filter_run_excluding windows_domain_joined_only: true unless windows_domain_joined?
   config.filter_run_excluding windows_not_domain_joined_only: true if windows_domain_joined?
-  # We think this line was causing rspec tests to not run on the Jenkins windows
-  # testers. If we ever fix it we should restore it.
-  # config.filter_run_excluding :windows_service_requires_assign_token => true if !STDOUT.isatty && !windows_user_right?("SeAssignPrimaryTokenPrivilege")
-  config.filter_run_excluding windows_service_requires_assign_token: true
+  config.filter_run_excluding windows_service_requires_assign_token: true if !STDOUT.isatty && !windows_user_right?("SeAssignPrimaryTokenPrivilege")
   config.filter_run_excluding solaris_only: true unless solaris?
-  config.filter_run_excluding system_windows_service_gem_only: true unless system_windows_service_gem?
   config.filter_run_excluding unix_only: true unless unix?
   config.filter_run_excluding linux_only: true unless linux?
   config.filter_run_excluding aix_only: true unless aix?
@@ -173,7 +170,6 @@ RSpec.configure do |config|
   config.filter_run_excluding requires_root: true unless root?
   config.filter_run_excluding requires_root_or_running_windows: true unless root? || windows?
   config.filter_run_excluding requires_unprivileged_user: true if root?
-  config.filter_run_excluding uses_diff: true unless has_diff?
   config.filter_run_excluding openssl_gte_101: true unless openssl_gte_101?
   config.filter_run_excluding openssl_lt_101: true unless openssl_lt_101?
   config.filter_run_excluding aes_256_gcm_only: true unless aes_256_gcm?
@@ -198,6 +194,7 @@ RSpec.configure do |config|
   # check for particular binaries we need
   config.filter_run_excluding choco_installed: true unless choco_installed?
   config.filter_run_excluding requires_ifconfig: true unless ifconfig?
+  config.filter_run_excluding pwsh_installed: true unless pwsh_installed?
 
   running_platform_arch = `uname -m`.strip unless windows?
 
@@ -238,6 +235,13 @@ RSpec.configure do |config|
     Chef::ChefFS::FileSystemCache.instance.reset!
 
     Chef::Config.reset
+
+    Chef::Log.setup!
+
+    Chef::ServerAPIVersions.instance.reset!
+
+    Chef::Config[:log_level] = :fatal
+    Chef::Log.level(Chef::Config[:log_level])
 
     # By default, treat deprecation warnings as errors in tests.
     Chef::Config.treat_deprecation_warnings_as_errors(true)
@@ -291,17 +295,15 @@ RSpec.configure do |config|
 
   # Protect Rspec from accidental exit(0) causing rspec to terminate without error
   config.around(:example) do |ex|
-    begin
-      ex.run
-    rescue SystemExit => e
-      raise UnexpectedSystemExit.from(e)
-    end
+
+    ex.run
+  rescue SystemExit => e
+    raise UnexpectedSystemExit.from(e)
+
   end
 end
 
 require "webrick/utils"
-require "thread"
-
 #    Webrick uses a centralized/synchronized timeout manager. It works by
 #    starting a thread to check for timeouts on an interval. The timeout
 #    checker thread cannot be stopped or canceled in any easy way, and it

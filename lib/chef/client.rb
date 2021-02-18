@@ -20,7 +20,7 @@
 
 require_relative "config"
 require_relative "mixin/params_validate"
-require "chef-utils/dsl/path_sanity" unless defined?(ChefUtils::DSL::PathSanity)
+require "chef-utils/dsl/default_paths" unless defined?(ChefUtils::DSL::DefaultPaths)
 require_relative "log"
 require_relative "deprecated"
 require_relative "server_api"
@@ -29,7 +29,7 @@ require_relative "api_client/registration"
 require_relative "node"
 require_relative "role"
 require_relative "file_cache"
-require_relative "run_context"
+Chef.autoload :RunContext, File.expand_path("run_context", __dir__)
 require_relative "runner"
 require_relative "run_status"
 require_relative "cookbook/cookbook_collection"
@@ -48,15 +48,16 @@ require_relative "action_collection"
 require_relative "resource_reporter"
 require_relative "data_collector"
 require_relative "run_lock"
-require_relative "policy_builder"
+Chef.autoload :PolicyBuilder, File.expand_path("policy_builder", __dir__)
 require_relative "request_id"
 require_relative "platform/rebooter"
 require_relative "mixin/deprecation"
 require "chef-utils" unless defined?(ChefUtils::CANARY)
 require "ohai" unless defined?(Ohai::System)
-require "rbconfig"
-require_relative "dist"
+require "rbconfig" unless defined?(RbConfig)
 require "forwardable" unless defined?(Forwardable)
+
+require_relative "compliance/runner"
 
 class Chef
   # == Chef::Client
@@ -236,6 +237,7 @@ class Chef
 
         events.register(Chef::DataCollector::Reporter.new(events))
         events.register(Chef::ActionCollection.new(events))
+        events.register(Chef::Compliance::Runner.new)
 
         run_status.run_id = request_id = Chef::RequestID.instance.request_id
 
@@ -244,19 +246,15 @@ class Chef
         run_status.run_context = run_context
 
         events.run_start(Chef::VERSION, run_status)
-
-        logger.info("*** #{Chef::Dist::PRODUCT} #{Chef::VERSION} ***")
+        logger.info("*** #{ChefUtils::Dist::Infra::PRODUCT} #{Chef::VERSION} ***")
         logger.info("Platform: #{RUBY_PLATFORM}")
-        logger.info "#{Chef::Dist::CLIENT.capitalize} pid: #{Process.pid}"
+        logger.info "#{ChefUtils::Dist::Infra::CLIENT.capitalize} pid: #{Process.pid}"
         logger.info "Targeting node: #{Chef::Config.target_mode.host}" if Chef::Config.target_mode?
-        logger.debug("#{Chef::Dist::CLIENT.capitalize} request_id: #{request_id}")
-        ENV["PATH"] = ChefUtils::DSL::PathSanity.sanitized_path if Chef::Config[:enforce_path_sanity]
+        logger.debug("#{ChefUtils::Dist::Infra::CLIENT.capitalize} request_id: #{request_id}")
+        logger.warn("`enforce_path_sanity` is deprecated, please use `enforce_default_paths` instead!") if Chef::Config[:enforce_path_sanity]
+        ENV["PATH"] = ChefUtils::DSL::DefaultPaths.default_paths if Chef::Config[:enforce_default_paths] || Chef::Config[:enforce_path_sanity]
 
-        if Chef::Config.target_mode?
-          get_ohai_data_remotely
-        else
-          run_ohai
-        end
+        run_ohai
 
         unless Chef::Config[:solo_legacy_mode]
           register
@@ -273,7 +271,7 @@ class Chef
         build_node
 
         run_status.start_clock
-        logger.info("Starting #{Chef::Dist::PRODUCT} Run for #{node.name}")
+        logger.info("Starting #{ChefUtils::Dist::Infra::PRODUCT} Run for #{node.name}")
         run_started
 
         do_windows_admin_check
@@ -288,7 +286,7 @@ class Chef
         converge_and_save(run_context)
 
         run_status.stop_clock
-        logger.info("#{Chef::Dist::PRODUCT} Run complete in #{run_status.elapsed_time} seconds")
+        logger.info("#{ChefUtils::Dist::Infra::PRODUCT} Run complete in #{run_status.elapsed_time} seconds")
         run_completed_successfully
         events.run_completed(node, run_status)
 
@@ -334,7 +332,7 @@ class Chef
       eol_year = 2006 + Gem::Version.new(Chef::VERSION).segments.first
 
       if Time.now > Time.new(eol_year, 5, 01)
-        logger.warn("This release of #{Chef::Dist::PRODUCT} became end of life (EOL) on May 1st #{eol_year}. Please update to a supported release to receive new features, bug fixes, and security updates.")
+        logger.warn("This release of #{ChefUtils::Dist::Infra::PRODUCT} became end of life (EOL) on May 1st #{eol_year}. Please update to a supported release to receive new features, bug fixes, and security updates.")
       end
     end
 
@@ -343,7 +341,7 @@ class Chef
       formatters_for_run.map do |formatter_name, output_path|
         if output_path.nil?
           Chef::Formatters.new(formatter_name, STDOUT_FD, STDERR_FD)
-        else
+        elsif output_path.is_a?(String)
           io = File.open(output_path, "a+")
           io.sync = true
           Chef::Formatters.new(formatter_name, io, io)
@@ -353,19 +351,15 @@ class Chef
 
     # @api private
     def formatters_for_run
-      if Chef::Config.formatters.empty?
-        [default_formatter]
-      else
-        Chef::Config.formatters
-      end
-    end
+      return Chef::Config.formatters unless Chef::Config.formatters.empty?
 
-    # @api private
-    def default_formatter
-      if !Chef::Config[:force_logger] || Chef::Config[:force_formatter]
-        [:doc]
-      else
-        [:null]
+      [ Chef::Config[:log_location] ].flatten.map do |log_location|
+        log_location = nil if log_location == STDOUT
+        if !Chef::Config[:force_logger] || Chef::Config[:force_formatter]
+          [:doc, log_location]
+        else
+          [:null]
+        end
       end
     end
 
@@ -581,32 +575,6 @@ class Chef
     end
 
     #
-    # Populate the minimal ohai attributes defined in #run_ohai with data train collects.
-    #
-    # Eventually ohai may support colleciton of data.
-    #
-    def get_ohai_data_remotely
-      ohai.data[:fqdn] = if transport_connection.respond_to?(:hostname)
-                           transport_connection.hostname
-                         else
-                           Chef::Config[:target_mode][:host]
-                         end
-      if transport_connection.respond_to?(:os)
-        ohai.data[:platform] = transport_connection.os.name
-        ohai.data[:platform_version] = transport_connection.os.release
-        ohai.data[:os] = transport_connection.os.family_hierarchy[1]
-        ohai.data[:platform_family] = transport_connection.os.family
-      end
-      # train does not collect these specifically
-      # ohai.data[:machinename] = nil
-      # ohai.data[:hostname] = nil
-      # ohai.data[:os_version] = nil # kernel version
-
-      ohai.data[:ohai_time] = Time.now.to_f
-      events.ohai_completed(node)
-    end
-
-    #
     # Run ohai plugins.  Runs all ohai plugins unless minimal_ohai is specified.
     #
     # Sends the ohai_completed event when finished.
@@ -618,6 +586,7 @@ class Chef
     #
     def run_ohai
       filter = Chef::Config[:minimal_ohai] ? %w{fqdn machinename hostname platform platform_version ohai_time os os_version init_package} : nil
+      ohai.transport_connection = transport_connection if Chef::Config.target_mode?
       ohai.all_plugins(filter)
       events.ohai_completed(node)
     end
@@ -711,16 +680,16 @@ class Chef
     #
     def converge(run_context)
       catch(:end_client_run_early) do
-        begin
-          events.converge_start(run_context)
-          logger.debug("Converging node #{node_name}")
-          @runner = Chef::Runner.new(run_context)
-          @runner.converge
-          events.converge_complete
-        rescue Exception => e
-          events.converge_failed(e)
-          raise e
-        end
+
+        events.converge_start(run_context)
+        logger.debug("Converging node #{node_name}")
+        @runner = Chef::Runner.new(run_context)
+        @runner.converge
+        events.converge_complete
+      rescue Exception => e
+        events.converge_failed(e)
+        raise e
+
       end
     end
 
@@ -767,7 +736,7 @@ class Chef
         logger.trace("Checking for administrator privileges....")
 
         if !has_admin_privileges?
-          message = "#{Chef::Dist::CLIENT} doesn't have administrator privileges on node #{node_name}."
+          message = "#{ChefUtils::Dist::Infra::CLIENT} doesn't have administrator privileges on node #{node_name}."
           if Chef::Config[:fatal_windows_admin_check]
             logger.fatal(message)
             logger.fatal("fatal_windows_admin_check is set to TRUE.")
@@ -776,7 +745,7 @@ class Chef
             logger.warn("#{message} This might cause unexpected resource failures.")
           end
         else
-          logger.trace("#{Chef::Dist::CLIENT} has administrator privileges on node #{node_name}.")
+          logger.trace("#{ChefUtils::Dist::Infra::CLIENT} has administrator privileges on node #{node_name}.")
         end
       end
     end

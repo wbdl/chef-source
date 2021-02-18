@@ -20,17 +20,19 @@ class Chef
       unified_mode true
       provides :chocolatey_feature
 
-      description "Use the chocolatey_feature resource to enable and disable Chocolatey features."
+      description "Use the **chocolatey_feature** resource to enable and disable Chocolatey features."
       introduced "15.1"
       examples <<~DOC
-        Enable the checksumFiles Chocolatey feature
+        **Enable the checksumFiles Chocolatey feature**
+
         ```ruby
         chocolatey_feature 'checksumFiles' do
           action :enable
         end
         ```
 
-        Disable the checksumFiles Chocolatey feature
+        **Disable the checksumFiles Chocolatey feature**
+
         ```ruby
         chocolatey_feature 'checksumFiles' do
           action :disable
@@ -63,9 +65,7 @@ class Chef
         data ? data.attribute("enabled").to_s : nil # REXML just returns nil if it can't find anything so avoid an undefined method error
       end
 
-      action :enable do
-        description "Enables a named Chocolatey feature."
-
+      action :enable, description: "Enables a named Chocolatey feature" do
         if current_resource.feature_state != true
           converge_by("enable Chocolatey feature '#{new_resource.feature_name}'") do
             shell_out!(choco_cmd("enable"))
@@ -73,9 +73,7 @@ class Chef
         end
       end
 
-      action :disable do
-        description "Disables a named Chocolatey feature."
-
+      action :disable, description: "Disables a named Chocolatey feature" do
         if current_resource.feature_state == true
           converge_by("disable Chocolatey feature '#{new_resource.feature_name}'") do
             shell_out!(choco_cmd("disable"))
@@ -87,8 +85,7 @@ class Chef
         # @param [String] action the name of the action to perform
         # @return [String] the choco feature command string
         def choco_cmd(action)
-          cmd = "#{ENV["ALLUSERSPROFILE"]}\\chocolatey\\bin\\choco feature #{action} --name #{new_resource.feature_name}"
-          cmd
+          "#{ENV["ALLUSERSPROFILE"]}\\chocolatey\\bin\\choco feature #{action} --name #{new_resource.feature_name}"
         end
       end
     end

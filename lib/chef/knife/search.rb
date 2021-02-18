@@ -18,6 +18,7 @@
 
 require_relative "../knife"
 require_relative "core/node_presenter"
+require_relative "core/formatting_options"
 
 class Chef
   class Knife
@@ -26,14 +27,13 @@ class Chef
       include Knife::Core::MultiAttributeReturnOption
 
       deps do
-        require "addressable/uri" unless defined?(Addressable::URI)
         require_relative "../node"
         require_relative "../environment"
         require_relative "../api_client"
         require_relative "../search/query"
       end
 
-      include Knife::Core::NodeFormattingOptions
+      include Knife::Core::FormattingOptions
 
       banner "knife search INDEX QUERY (options)"
 

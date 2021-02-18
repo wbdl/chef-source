@@ -17,6 +17,7 @@
 #
 
 require_relative "../resource"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Resource
@@ -25,10 +26,11 @@ class Chef
 
       provides(:apt_update) { true }
 
-      description "Use the apt_update resource to manage APT repository updates on Debian and Ubuntu platforms."
+      description "Use the **apt_update** resource to manage APT repository updates on Debian and Ubuntu platforms."
       introduced "12.7"
       examples <<~DOC
-        Update the Apt repository at a specified interval
+        **Update the Apt repository at a specified interval**:
+
         ```ruby
         apt_update 'all platforms' do
         frequency 86400
@@ -36,7 +38,8 @@ class Chef
         end
         ```
 
-        Update the Apt repository at the start of a Chef Infra Client run
+        **Update the Apt repository at the start of a Chef Infra Client run**:
+
         ```ruby
         apt_update 'update'
         ```
@@ -46,7 +49,7 @@ class Chef
       property :name, String, default: ""
 
       property :frequency, Integer,
-        description: "Determines how frequently (in seconds) APT repository updates are made. Use this property when the :periodic action is specified.",
+        description: "Determines how frequently (in seconds) APT repository updates are made. Use this property when the `:periodic` action is specified.",
         default: 86_400
 
       default_action :periodic
@@ -83,7 +86,7 @@ class Chef
         end
       end
 
-      action :periodic do
+      action :periodic, description: "Update the Apt repository at the interval specified by the `frequency` property" do
         return unless debian?
 
         unless apt_up_to_date?
@@ -93,7 +96,7 @@ class Chef
         end
       end
 
-      action :update do
+      action :update, description: "Update the Apt repository at the start of a #{ChefUtils::Dist::Infra::PRODUCT} run" do
         return unless debian?
 
         converge_by "force update new lists of packages" do

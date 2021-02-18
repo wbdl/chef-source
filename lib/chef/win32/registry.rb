@@ -20,10 +20,9 @@ require_relative "../reserved_names"
 require_relative "api"
 require_relative "../mixin/wide_string"
 
-if RUBY_PLATFORM =~ /mswin|mingw32|windows/
-  require_relative "../monkey_patches/win32/registry"
+if RUBY_PLATFORM.match?(/mswin|mingw32|windows/)
+  Win32.autoload :Registry, File.expand_path("../monkey_patches/win32/registry", __dir__)
   require_relative "api/registry"
-  require "win32/registry" unless defined?(Win32::Registry)
   require "win32/api"
 end
 
@@ -31,7 +30,7 @@ class Chef
   class Win32
     class Registry
 
-      if RUBY_PLATFORM =~ /mswin|mingw32|windows/
+      if RUBY_PLATFORM.match?(/mswin|mingw32|windows/)
         include Chef::ReservedNames::Win32::API::Registry
         extend Chef::ReservedNames::Win32::API::Registry
       end
@@ -341,7 +340,7 @@ class Chef
       end
 
       def get_type_from_num(val_type)
-        value = {
+        {
           3 => ::Win32::Registry::REG_BINARY,
           1 => ::Win32::Registry::REG_SZ,
           7 => ::Win32::Registry::REG_MULTI_SZ,
@@ -350,7 +349,6 @@ class Chef
           5 => ::Win32::Registry::REG_DWORD_BIG_ENDIAN,
           11 => ::Win32::Registry::REG_QWORD,
         }[val_type]
-        value
       end
 
       def create_missing(key_path)

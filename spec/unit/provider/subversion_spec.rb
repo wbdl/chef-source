@@ -271,9 +271,6 @@ describe Chef::Provider::Subversion do
   end
 
   context "selects the correct svn binary" do
-    before do
-    end
-
     it "selects 'svn' as the binary by default" do
       @resource.svn_binary nil
       allow(ChefUtils).to receive(:windows?) { false }
@@ -322,11 +319,11 @@ describe Chef::Provider::Subversion do
     let(:http_proxy_uri) { "http://somehost:1" }
     let(:http_no_proxy) { "svn.example.org" }
 
-    before (:all) do
+    before(:all) do
       @original_env = ENV.to_hash
     end
 
-    after (:all) do
+    after(:all) do
       ENV.clear
       ENV.update(@original_env)
     end

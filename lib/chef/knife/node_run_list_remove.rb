@@ -34,7 +34,7 @@ class Chef
 
         if @name_args.size > 2
           # Check for nested lists and create a single plain one
-          entries = @name_args[1..-1].map do |entry|
+          entries = @name_args[1..].map do |entry|
             entry.split(",").map(&:strip)
           end.flatten
         else
@@ -49,7 +49,7 @@ class Chef
             node.run_list.remove(e)
           else
             ui.warn "#{e} is not in the run list"
-            unless e =~ /^(recipe|role)\[/
+            unless /^(recipe|role)\[/.match?(e)
               ui.warn "(did you forget recipe[] or role[] around it?)"
             end
           end

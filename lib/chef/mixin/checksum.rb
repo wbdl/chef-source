@@ -16,7 +16,6 @@
 # limitations under the License.
 #
 
-require "digest/sha2" unless defined?(Digest::SHA2)
 require_relative "../digester"
 
 class Chef
@@ -32,7 +31,6 @@ class Chef
 
         checksum.slice(0, 6)
       end
-
     end
   end
 end

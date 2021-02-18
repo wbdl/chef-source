@@ -32,7 +32,7 @@ class Chef
     #                            optionally filtering by category
     # subcommand_files         - returns an array of all subcommand files
     #                            that could be loaded
-    # commnad_class_from(args) - returns the subcommand class for the
+    # command_class_from(args) - returns the subcommand class for the
     #                            user-requested command
     #
     class SubcommandLoader
@@ -73,6 +73,25 @@ class Chef
 
       def self.plugin_manifest_path
         Chef::Util::PathHelper.home(".chef", "plugin_manifest.json")
+      end
+
+      def self.generate_hash
+        output = if plugin_manifest?
+                   plugin_manifest
+                 else
+                   { Chef::Knife::SubcommandLoader::HashedCommandLoader::KEY => {} }
+                 end
+        output[Chef::Knife::SubcommandLoader::HashedCommandLoader::KEY]["plugins_paths"] = Chef::Knife.subcommand_files
+        output[Chef::Knife::SubcommandLoader::HashedCommandLoader::KEY]["plugins_by_category"] = Chef::Knife.subcommands_by_category
+        output
+      end
+
+      def self.write_hash(data)
+        plugin_manifest_dir = File.expand_path("..", plugin_manifest_path)
+        FileUtils.mkdir_p(plugin_manifest_dir) unless File.directory?(plugin_manifest_dir)
+        File.open(plugin_manifest_path, "w") do |f|
+          f.write(Chef::JSONCompat.to_json_pretty(data))
+        end
       end
 
       def initialize(chef_config_dir)
@@ -125,7 +144,7 @@ class Chef
       #
       def find_subcommands_via_dirglob
         # The "require paths" of the core knife subcommands bundled with chef
-        files = Dir[File.join(Chef::Util::PathHelper.escape_glob_dir(File.expand_path("../../../knife", __FILE__)), "*.rb")]
+        files = Dir[File.join(Chef::Util::PathHelper.escape_glob_dir(File.expand_path("../../knife", __dir__)), "*.rb")]
         subcommand_files = {}
         files.each do |knife_file|
           rel_path = knife_file[/#{CHEF_ROOT}#{Regexp.escape(File::SEPARATOR)}(.*)\.rb/, 1]

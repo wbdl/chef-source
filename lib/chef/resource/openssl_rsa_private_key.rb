@@ -23,10 +23,12 @@ class Chef
       require_relative "../mixin/openssl_helper"
       include Chef::Mixin::OpenSSLHelper
 
+      unified_mode true
+
       provides(:openssl_rsa_private_key) { true }
       provides(:openssl_rsa_key) { true } # legacy cookbook resource name
 
-      description "Use the openssl_rsa_private_key resource to generate RSA private key files. If a valid RSA key file can be opened at the specified location, no new file will be created. If the RSA key file cannot be opened, either because it does not exist or because the password to the RSA key file does not match the password in the recipe, it will be overwritten."
+      description "Use the **openssl_rsa_private_key** resource to generate RSA private key files. If a valid RSA key file can be opened at the specified location, no new file will be created. If the RSA key file cannot be opened, either because it does not exist or because the password to the RSA key file does not match the password in the recipe, it will be overwritten."
       introduced "14.0"
       examples <<~DOC
         Generate new 2048bit key with the default des3 cipher
@@ -63,10 +65,13 @@ class Chef
         description: "The desired passphrase for the key."
 
       property :key_cipher, String,
-        equal_to: OpenSSL::Cipher.ciphers,
-        validation_message: "key_cipher must be a cipher known to openssl. Run `openssl list-cipher-algorithms` to see available options.",
         description: "The designed cipher to use when generating your key. Run `openssl list-cipher-algorithms` to see available options.",
-        default: "des3"
+        default: lazy { "des3" },
+        default_description: "des3",
+        callbacks: {
+          "key_cipher must be a cipher known to openssl. Run `openssl list-cipher-algorithms` to see available options." =>
+            proc { |v| OpenSSL::Cipher.ciphers.include?(v) },
+        }
 
       property :owner, [String, Integer],
         description: "The owner applied to all files created by the resource."

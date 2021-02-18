@@ -18,9 +18,11 @@
 
 require_relative "../knife"
 require_relative "data_bag_secret_options"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 require "license_acceptance/cli_flags/mixlib_cli"
-require "license_acceptance/acceptor"
+module LicenseAcceptance
+  autoload :Acceptor, "license_acceptance/acceptor"
+end
 
 class Chef
   class Knife
@@ -93,12 +95,12 @@ class Chef
         description: "For WinRM basic authentication when using the 'ssl' auth method.",
         boolean: true
 
-        # This option was provided in knife bootstrap windows winrm,
-        # but it is ignored  in knife-windows/WinrmSession, and so remains unimplemeneted here.
-        # option :kerberos_keytab_file,
-        #   :short => "-T KEYTAB_FILE",
-        #   :long => "--keytab-file KEYTAB_FILE",
-        #   :description => "The Kerberos keytab file used for authentication"
+      # This option was provided in knife bootstrap windows winrm,
+      # but it is ignored  in knife-windows/WinrmSession, and so remains unimplemented here.
+      # option :kerberos_keytab_file,
+      #   :short => "-T KEYTAB_FILE",
+      #   :long => "--keytab-file KEYTAB_FILE",
+      #   :description => "The Kerberos keytab file used for authentication"
 
       option :kerberos_realm,
         short: "-R KERBEROS_REALM",
@@ -144,7 +146,7 @@ class Chef
       # client.rb content via chef-full/bootstrap_context
       option :bootstrap_version,
         long: "--bootstrap-version VERSION",
-        description: "The version of #{Chef::Dist::PRODUCT} to install."
+        description: "The version of #{ChefUtils::Dist::Infra::PRODUCT} to install."
 
       option :channel,
         long: "--channel CHANNEL",
@@ -176,7 +178,7 @@ class Chef
       option :bootstrap_template,
         short: "-t TEMPLATE",
         long: "--bootstrap-template TEMPLATE",
-        description: "Bootstrap #{Chef::Dist::PRODUCT} using a built-in or custom template. Set to the full path of an erb template or use one of the built-in templates."
+        description: "Bootstrap #{ChefUtils::Dist::Infra::PRODUCT} using a built-in or custom template. Set to the full path of an erb template or use one of the built-in templates."
 
       # client.rb content via bootstrap_context
       option :node_ssl_verify_mode,
@@ -194,7 +196,7 @@ class Chef
       # bootstrap_context - client.rb
       option :node_verify_api_cert,
         long: "--[no-]node-verify-api-cert",
-        description: "Verify the SSL cert for HTTPS requests to the #{Chef::Dist::SERVER_PRODUCT} API.",
+        description: "Verify the SSL cert for HTTPS requests to the #{ChefUtils::Dist::Server::PRODUCT} API.",
         boolean: true
 
       # runtime - sudo settings (train handles sudo)
@@ -214,6 +216,16 @@ class Chef
         long: "--use-sudo-password",
         description: "Execute the bootstrap via sudo with password.",
         boolean: false
+
+      # runtime - su user
+      option :su_user,
+        long: "--su-user NAME",
+        description: "The su - USER name to perform bootstrap command using a non-root user."
+
+      # runtime - su user password
+      option :su_password,
+        long: "--su-password PASSWORD",
+        description: "The su USER password for authentication."
 
       # runtime - client_builder
       option :chef_node_name,
@@ -252,14 +264,14 @@ class Chef
       option :first_boot_attributes,
         short: "-j JSON_ATTRIBS",
         long: "--json-attributes",
-        description: "A JSON string to be added to the first run of #{Chef::Dist::CLIENT}.",
+        description: "A JSON string to be added to the first run of #{ChefUtils::Dist::Infra::CLIENT}.",
         proc: lambda { |o| Chef::JSONCompat.parse(o) },
         default: nil
 
       # bootstrap template
       option :first_boot_attributes_from_file,
         long: "--json-attribute-file FILE",
-        description: "A JSON file to be used to the first run of #{Chef::Dist::CLIENT}.",
+        description: "A JSON file to be used to the first run of #{ChefUtils::Dist::Infra::CLIENT}.",
         proc: lambda { |o| Chef::JSONCompat.parse(File.read(o)) },
         default: nil
 
@@ -275,7 +287,7 @@ class Chef
           accumulator
         }
 
-      # bootstrap override: url of a an installer shell script touse in place of omnitruck
+      # bootstrap override: url of a an installer shell script to use in place of omnitruck
       # Note that the bootstrap template _only_ references this out of Chef::Config, and not from
       # the provided options to knife bootstrap, so we set the Chef::Config option here.
       option :bootstrap_url,
@@ -290,28 +302,28 @@ class Chef
       option :msi_url, # Windows target only
         short: "-m URL",
         long: "--msi-url URL",
-        description: "Location of the #{Chef::Dist::PRODUCT} MSI. The default templates will prefer to download from this location. The MSI will be downloaded from #{Chef::Dist::WEBSITE} if not provided (Windows).",
+        description: "Location of the #{ChefUtils::Dist::Infra::PRODUCT} MSI. The default templates will prefer to download from this location. The MSI will be downloaded from #{ChefUtils::Dist::Org::WEBSITE} if not provided (Windows).",
         default: ""
 
       # bootstrap override: Do this instead of our own setup.sh from omnitruck. Causes bootstrap_url to be ignored.
       option :bootstrap_install_command,
         long: "--bootstrap-install-command COMMANDS",
-        description: "Custom command to install #{Chef::Dist::PRODUCT}."
+        description: "Custom command to install #{ChefUtils::Dist::Infra::PRODUCT}."
 
       # bootstrap template: Run this command first in the bootstrap script
       option :bootstrap_preinstall_command,
         long: "--bootstrap-preinstall-command COMMANDS",
-        description: "Custom commands to run before installing #{Chef::Dist::PRODUCT}."
+        description: "Custom commands to run before installing #{ChefUtils::Dist::Infra::PRODUCT}."
 
       # bootstrap template
       option :bootstrap_wget_options,
         long: "--bootstrap-wget-options OPTIONS",
-        description: "Add options to wget when installing #{Chef::Dist::PRODUCT}."
+        description: "Add options to wget when installing #{ChefUtils::Dist::Infra::PRODUCT}."
 
       # bootstrap template
       option :bootstrap_curl_options,
         long: "--bootstrap-curl-options OPTIONS",
-        description: "Add options to curl when install #{Chef::Dist::PRODUCT}."
+        description: "Add options to curl when install #{ChefUtils::Dist::Infra::PRODUCT}."
 
       # chef_vault_handler
       option :bootstrap_vault_file,
@@ -328,7 +340,7 @@ class Chef
         long: "--bootstrap-vault-item VAULT_ITEM",
         description: 'A single vault and item to update as "vault:item".',
         proc: Proc.new { |i, accumulator|
-          (vault, item) = i.split(/:/)
+          (vault, item) = i.split(":")
           accumulator ||= {}
           accumulator[vault] ||= []
           accumulator[vault].push(item)
@@ -405,6 +417,7 @@ class Chef
       deps do
         require "erubis" unless defined?(Erubis)
 
+        require "net/ssh" unless defined?(Net::SSH)
         require_relative "../json_compat"
         require_relative "../util/path_helper"
         require_relative "bootstrap/chef_vault_handler"
@@ -480,14 +493,14 @@ class Chef
         template = bootstrap_template
 
         # Use the template directly if it's a path to an actual file
-        if File.exists?(template)
+        if File.exist?(template)
           Chef::Log.trace("Using the specified bootstrap template: #{File.dirname(template)}")
           return template
         end
 
         # Otherwise search the template directories until we find the right one
         bootstrap_files = []
-        bootstrap_files << File.join(File.dirname(__FILE__), "bootstrap/templates", "#{template}.erb")
+        bootstrap_files << File.join(__dir__, "bootstrap/templates", "#{template}.erb")
         bootstrap_files << File.join(Knife.chef_config_dir, "bootstrap", "#{template}.erb") if Chef::Knife.chef_config_dir
         Chef::Util::PathHelper.home(".chef", "bootstrap", "#{template}.erb") { |p| bootstrap_files << p }
         bootstrap_files << Gem.find_files(File.join("chef", "knife", "bootstrap", "#{template}.erb"))
@@ -495,7 +508,7 @@ class Chef
 
         template_file = Array(bootstrap_files).find do |bootstrap_template|
           Chef::Log.trace("Looking for bootstrap template in #{File.dirname(bootstrap_template)}")
-          File.exists?(bootstrap_template)
+          File.exist?(bootstrap_template)
         end
 
         unless template_file
@@ -538,7 +551,7 @@ class Chef
       end
 
       def run
-        check_license
+        check_license if ChefUtils::Dist::Org::ENFORCE_LICENSE
 
         plugin_setup!
         validate_name_args!
@@ -580,29 +593,44 @@ class Chef
 
           bootstrap_context.client_pem = client_builder.client_path
         else
-          ui.info <<~EOM
-            Performing legacy client registration with the validation key at #{Chef::Config[:validation_key]}...
-            Delete your validation key in order to use your user credentials for client registration instead.
-          EOM
-
+          ui.warn "Performing legacy client registration with the validation key at #{Chef::Config[:validation_key]}..."
+          ui.warn "Remove the key file or remove the 'validation_key' configuration option from your config.rb (knife.rb) to use more secure user credentials for client registration."
         end
       end
 
       def perform_bootstrap(remote_bootstrap_script_path)
         ui.info("Bootstrapping #{ui.color(server_name, :bold)}")
         cmd = bootstrap_command(remote_bootstrap_script_path)
-        r = connection.run_command(cmd) do |data|
+        bootstrap_run_command(cmd)
+      end
+
+      # Actual bootstrap command to be run on the node.
+      # Handles recursive calls if su USER failed to authenticate.
+      def bootstrap_run_command(cmd)
+        r = connection.run_command(cmd) do |data, channel|
           ui.msg("#{ui.color(" [#{connection.hostname}]", :cyan)} #{data}")
+          channel.send_data("#{config[:su_password] || config[:connection_password]}\n") if data.match?("Password:")
         end
+
         if r.exit_status != 0
           ui.error("The following error occurred on #{server_name}:")
-          ui.error(r.stderr)
-          exit 1
+          ui.error("#{r.stdout} #{r.stderr}".strip)
+          exit(r.exit_status)
+        end
+      rescue Train::UserError => e
+        limit ||= 0
+        if e.reason == :bad_su_user_password && limit < 3
+          limit += 1
+          ui.warn("Failed to authenticate su - #{config[:su_user]} to #{server_name}")
+          config[:su_password] = ui.ask("Enter password for su - #{config[:su_user]}@#{server_name}:", echo: false)
+          retry
+        else
+          raise
         end
       end
 
       def connect!
-        ui.info("Connecting to #{ui.color(server_name, :bold)}")
+        ui.info("Connecting to #{ui.color(server_name, :bold)} using #{connection_protocol}")
         opts ||= connection_opts.dup
         do_connect(opts)
       rescue Train::Error => e
@@ -633,9 +661,7 @@ class Chef
             raise
           else
             ui.warn("Failed to authenticate #{opts[:user]} to #{server_name} - trying password auth")
-            password = ui.ask("Enter password for #{opts[:user]}@#{server_name}:") do |q|
-              q.echo = false
-            end
+            password = ui.ask("Enter password for #{opts[:user]}@#{server_name}:", echo: false)
           end
 
           opts.merge! force_ssh_password_opts(password)
@@ -649,9 +675,7 @@ class Chef
             raise
           else
             ui.warn("Failed to authenticate #{opts[:user]} to #{server_name} - trying password auth")
-            password = ui.ask("Enter password for #{opts[:user]}@#{server_name}:") do |q|
-              q.echo = false
-            end
+            password = ui.ask("Enter password for #{opts[:user]}@#{server_name}:", echo: false)
           end
 
           opts.merge! force_winrm_password_opts(password)
@@ -684,9 +708,7 @@ class Chef
           retry
         elsif config[:use_sudo_password] && (e.reason == :sudo_password_required || e.reason == :bad_sudo_password) && limit < 3
           ui.warn("Failed to authenticate #{conn_options[:user]} to #{server_name} - #{e.message} \n sudo: #{limit} incorrect password attempt")
-          sudo_password = ui.ask("Enter sudo password for #{conn_options[:user]}@#{server_name}:") do |q|
-            q.echo = false
-          end
+          sudo_password = ui.ask("Enter sudo password for #{conn_options[:user]}@#{server_name}:", echo: false)
           limit += 1
           conn_options[:sudo_password] = sudo_password
 
@@ -706,14 +728,23 @@ class Chef
         true
       end
 
+      # FIXME: someone needs to clean this up properly:  https://github.com/chef/chef/issues/9645
+      # This code is deliberately left without an abstraction around deprecating the config options to avoid knife plugins from
+      # using those methods (which will need to be deprecated and break them) via inheritance (ruby does not have a true `private`
+      # so the lack of any inheritable implementation is because of that).
+      #
       def winrm_auth_method
-        config_value(:winrm_auth_method, :winrm_authentication_protocol, "negotiate")
+        config.key?(:winrm_auth_method) ? config[:winrm_auth_method] : config.key?(:winrm_authentications_protocol) ? config[:winrm_authentication_protocol] : "negotiate" # rubocop:disable Style/NestedTernaryOperator
+      end
+
+      def ssh_verify_host_key
+        config.key?(:ssh_verify_host_key) ? config[:ssh_verify_host_key] : config.key?(:host_key_verify) ? config[:host_key_verify] : "always" # rubocop:disable Style/NestedTernaryOperator
       end
 
       # Fail if using plaintext auth without ssl because
       # this can expose keys in plaintext on the wire.
       # TODO test for this method
-      # TODO check that the protoocol is valid.
+      # TODO check that the protocol is valid.
       def validate_winrm_transport_opts!
         return true unless winrm?
 
@@ -908,7 +939,7 @@ class Chef
           { self_signed: config[:winrm_no_verify_cert] === true }
         elsif ssh?
           # Fall back to the old knife config key name for back compat.
-          { verify_host_key: config_value(:ssh_verify_host_key, :host_key_verify, "always") }
+          { verify_host_key: ssh_verify_host_key }
         else
           {}
         end
@@ -967,7 +998,7 @@ class Chef
             gw_host = split[1]
           end
           gw_host, gw_port = gw_host.split(":", 2)
-          # TODO - validate convertable port in config validation?
+          # TODO - validate convertible port in config validation?
           gw_port = Integer(gw_port) rescue nil
           opts[:bastion_host] = gw_host
           opts[:bastion_user] = gw_user
@@ -1054,7 +1085,7 @@ class Chef
       # @api deprecated
       #
       def config_value(key, fallback_key = nil, default = nil)
-        Chef.deprecated(:knife_bootstrap_apis, "Use of config_value without a fallback_key is deprecated.  Knife plugin authors should access the config hash directly, which does correct merging of cli and config options.") if fallback_key.nil?
+        Chef.deprecated(:knife_bootstrap_apis, "Use of config_value is deprecated.  Knife plugin authors should access the config hash directly, which does correct merging of cli and config options.")
         if config.key?(key)
           # the first key is the primary key so we check the merged hash first
           config[key]
@@ -1073,13 +1104,23 @@ class Chef
         remote_path
       end
 
-      # build the command string for bootrapping
+      # build the command string for bootstrapping
       # @return String
       def bootstrap_command(remote_path)
         if connection.windows?
           "cmd.exe /C #{remote_path}"
         else
-          "sh #{remote_path}"
+          cmd = "sh #{remote_path}"
+
+          if config[:su_user]
+            # su - USER is subject to required an interactive console
+            # Otherwise, it will raise: su: must be run from a terminal
+            set_transport_options(pty: true)
+            cmd = "su - #{config[:su_user]} -c '#{cmd}'"
+            cmd = "sudo " << cmd if config[:use_sudo]
+          end
+
+          cmd
         end
       end
 
@@ -1133,6 +1174,18 @@ class Chef
         return options[:session_timeout][:default] if timeout.nil?
 
         timeout.to_i
+      end
+
+      # Train::Transports::SSH::Connection#transport_options
+      # Append the options to connection transport_options
+      #
+      # @param opts [Hash] the opts to be added to connection transport_options.
+      # @return [Hash] transport_options if the opts contains any option to be set.
+      #
+      def set_transport_options(opts)
+        return unless opts.is_a?(Hash) || !opts.empty?
+
+        connection&.connection&.transport_options&.merge! opts
       end
     end
   end

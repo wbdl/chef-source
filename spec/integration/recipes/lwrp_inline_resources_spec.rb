@@ -6,7 +6,7 @@ describe "LWRPs with inline resources" do
   include IntegrationSupport
   include Chef::Mixin::ShellOut
 
-  let(:chef_dir) { File.expand_path("../../../../bin", __FILE__) }
+  let(:chef_dir) { File.expand_path("../../../bin", __dir__) }
 
   # Invoke `chef-client` as `ruby PATH/TO/chef-client`. This ensures the
   # following constraints are satisfied:
@@ -59,7 +59,7 @@ describe "LWRPs with inline resources" do
       end
     end
 
-    after { File.delete(LwrpShadowedPropertyTest::PATH) if File.exists?(LwrpShadowedPropertyTest::PATH) }
+    after { File.delete(LwrpShadowedPropertyTest::PATH) if File.exist?(LwrpShadowedPropertyTest::PATH) }
 
     # https://github.com/chef/chef/issues/4334
     it "does not warn spuriously" do

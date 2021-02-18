@@ -16,14 +16,18 @@
 # limitations under the License.
 #
 require "spec_helper"
-require "chef/mixin/powershell_out"
+require "chef/mixin/shell_out"
 
 describe Chef::Resource::ChocolateyPackage, :windows_only, :choco_installed do
-  include Chef::Mixin::PowershellOut
+  include Chef::Mixin::ShellOut
 
   let(:package_name) { "test-A" }
-  let(:package_list) { proc { powershell_out!("choco list -lo -r #{Array(package_name).join(" ")}").stdout.chomp } }
+  let(:package_list) { proc { shell_out!("choco list -lo -r #{Array(package_name).join(" ")}").stdout.chomp } }
   let(:package_source) { File.join(CHEF_SPEC_ASSETS, "chocolatey_feed") }
+
+  let(:run_context) do
+    Chef::RunContext.new(Chef::Node.new, {}, Chef::EventDispatch::Dispatcher.new)
+  end
 
   subject do
     new_resource = Chef::Resource::ChocolateyPackage.new("test choco package", run_context)

@@ -26,13 +26,74 @@ class Chef
 
       provides(:alternatives) { true }
 
-      description "The alternatives resource allows for configuration of command alternatives in Linux using the alternatives or update-alternatives packages."
+      description "Use the **alternatives** resource to configure command alternatives in Linux using the alternatives or update-alternatives packages."
       introduced "16.0"
+      examples <<~DOC
+      **Install an alternative**:
 
-      property :link_name, String, name_property: true
-      property :link, String, default: lazy { |n| "/usr/bin/#{n.link_name}" }
-      property :path, String
-      property :priority, [String, Integer], coerce: proc { |n| n.to_i }
+      ```ruby
+      alternatives 'python install 2' do
+        link_name 'python'
+        path '/usr/bin/python2.7'
+        priority 100
+        action :install
+      end
+      ```
+
+      **Set an alternative**:
+
+      ```ruby
+      alternatives 'python set version 3' do
+        link_name 'python'
+        path '/usr/bin/python3'
+        action :set
+      end
+      ```
+
+      **Set the automatic alternative state**:
+
+      ```ruby
+      alternatives 'python auto' do
+        link_name 'python'
+        action :auto
+      end
+      ```
+
+      **Refresh an alternative**:
+
+      ```ruby
+      alternatives 'python refresh' do
+        link_name 'python'
+        action :refresh
+      end
+      ```
+
+      **Remove an alternative**:
+
+      ```ruby
+      alternatives 'python remove' do
+        link_name 'python'
+        path '/usr/bin/python3'
+        action :remove
+      end
+      ```
+      DOC
+
+      property :link_name, String,
+        name_property: true,
+        description: "The name of the link to create. This will be the command you type on the command line such as `ruby` or `gcc`."
+
+      property :link, String,
+        default: lazy { |n| "/usr/bin/#{n.link_name}" },
+        default_description: "/usr/bin/LINK_NAME",
+        description: "The path to the alternatives link."
+
+      property :path, String,
+        description: "The absolute path to the original application binary such as `/usr/bin/ruby27`."
+
+      property :priority, [String, Integer],
+        coerce: proc { |n| n.to_i },
+        description: "The priority of the alternative."
 
       def define_resource_requirements
         requirements.assert(:install) do |a|
@@ -61,7 +122,7 @@ class Chef
         end
       end
 
-      action :install do
+      action :install, description: "Install an alternative on the system including symlinks" do
         if path_priority != new_resource.priority
           converge_by("adding alternative #{new_resource.link} #{new_resource.link_name} #{new_resource.path} #{new_resource.priority}") do
             output = shell_out(alternatives_cmd, "--install", new_resource.link, new_resource.link_name, new_resource.path, new_resource.priority)
@@ -72,7 +133,7 @@ class Chef
         end
       end
 
-      action :set do
+      action :set, description: "Set the symlink for an alternative" do
         if current_path != new_resource.path
           converge_by("setting alternative #{new_resource.link_name} #{new_resource.path}") do
             output = shell_out(alternatives_cmd, "--set", new_resource.link_name, new_resource.path)
@@ -83,7 +144,7 @@ class Chef
         end
       end
 
-      action :remove do
+      action :remove, description: "Remove an alternative and all associated links" do
         if path_exists?
           converge_by("removing alternative #{new_resource.link_name} #{new_resource.path}") do
             shell_out(alternatives_cmd, "--remove", new_resource.link_name, new_resource.path)
@@ -91,13 +152,13 @@ class Chef
         end
       end
 
-      action :auto do
+      action :auto, description: "Set an alternative up in automatic mode with the highest priority automatically selected" do
         converge_by("setting auto alternative #{new_resource.link_name}") do
           shell_out(alternatives_cmd, "--auto", new_resource.link_name)
         end
       end
 
-      action :refresh do
+      action :refresh, description: "Refresh alternatives" do
         converge_by("refreshing alternative #{new_resource.link_name}") do
           shell_out(alternatives_cmd, "--refresh", new_resource.link_name)
         end

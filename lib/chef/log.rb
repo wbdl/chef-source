@@ -21,15 +21,20 @@ require "logger"
 require_relative "monologger"
 require_relative "exceptions"
 require "mixlib/log"
-require_relative "log/syslog" unless RUBY_PLATFORM =~ /mswin|mingw|windows/
+require_relative "log/syslog" unless RUBY_PLATFORM.match?(/mswin|mingw|windows/)
 require_relative "log/winevt"
 
 class Chef
   class Log
     extend Mixlib::Log
 
+    def self.setup!
+      init(MonoLogger.new(STDOUT))
+      nil
+    end
+
     # Force initialization of the primary log device (@logger)
-    init(MonoLogger.new(STDOUT))
+    setup!
 
     class Formatter
       def self.show_time=(*args)
@@ -47,7 +52,7 @@ class Chef
     def self.caller_location
       # Pick the first caller that is *not* part of the Chef gem, that's the
       # thing the user wrote. Or failing that, the most recent caller.
-      chef_gem_path = File.expand_path("../..", __FILE__)
+      chef_gem_path = File.expand_path("..", __dir__)
       caller(0..20).find { |c| !c.start_with?(chef_gem_path) } || caller(0..1)[0]
     end
 

@@ -21,10 +21,23 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsAutorun < Chef::Resource
+      unified_mode true
+
       provides(:windows_auto_run) { true }
 
-      description "Use the windows_auto_run resource to set applications to run at login."
+      description "Use the **windows_auto_run** resource to set applications to run at login."
       introduced "14.0"
+      examples <<~DOC
+      **Run BGInfo at login**
+
+      ```ruby
+      windows_auto_run 'BGINFO' do
+        program 'C:/Sysinternals/bginfo.exe'
+        args    '\'C:/Sysinternals/Config.bgi\' /NOLICPROMPT /TIMER:0'
+        action  :create
+      end
+      ```
+      DOC
 
       property :program_name, String,
         description: "The name of the program to run at login if it differs from the resource block's name.",
@@ -32,7 +45,7 @@ class Chef
 
       property :path, String,
         coerce: proc { |x| x.tr("/", "\\") }, # make sure we have windows paths for the registry
-        description: "The path to the program that will run at login. "
+        description: "The path to the program that will run at login."
 
       property :args, String,
         description: "Any arguments to be used with the program."
@@ -44,8 +57,7 @@ class Chef
 
       alias_method :program, :path
 
-      action :create do
-        description "Create an item to be run at login."
+      action :create, description: "Create an item to be run at login" do
 
         data = "\"#{new_resource.path}\""
         data << " #{new_resource.args}" if new_resource.args
@@ -60,9 +72,7 @@ class Chef
         end
       end
 
-      action :remove do
-        description "Remove an item that was previously setup to run at login"
-
+      action :remove, description: "Remove an item that was previously configured to run at login" do
         registry_key registry_path do
           values [{
             name: new_resource.program_name,

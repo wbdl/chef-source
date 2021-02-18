@@ -22,12 +22,10 @@ describe Chef::Application do
   before do
     @original_argv = ARGV.dup
     ARGV.clear
-    Chef::Log.logger = Logger.new(StringIO.new)
     @app = Chef::Application.new
     allow(@app).to receive(:trap)
     allow(Dir).to receive(:chdir).and_return(0)
     allow(@app).to receive(:reconfigure)
-    Chef::Log.init(STDERR)
   end
 
   after do
@@ -91,6 +89,13 @@ describe Chef::Application do
           it "should check the license acceptance" do
             expect(@app).to receive(:check_license_acceptance)
             @app.run(enforce_license: true)
+          end
+        end
+
+        describe "when enforce_license is set to false" do
+          it "should not check the license acceptance" do
+            expect(@app).to_not receive(:check_license_acceptance)
+            @app.run(enforce_license: false)
           end
         end
 
@@ -194,7 +199,6 @@ describe Chef::Application do
       it "should initialise the chef logger" do
         allow(Chef::Log).to receive(:level=)
         @monologger = double("Monologger")
-        expect(MonoLogger).to receive(:new).with(Chef::Config[:log_location]).and_return(@monologger)
         allow(MonoLogger).to receive(:new).with(STDOUT).and_return(@monologger)
         allow(@monologger).to receive(:formatter=).with(Chef::Log.logger.formatter)
         expect(Chef::Log).to receive(:init).with(@monologger)
@@ -248,6 +252,10 @@ describe Chef::Application do
       end
 
       context "when log_level is not set" do
+        before do
+          Chef::Config.delete(:log_level)
+        end
+
         it_behaves_like "log_level_is_auto"
       end
 
@@ -272,7 +280,7 @@ describe Chef::Application do
             it "it sets log_location to an instance of #{expected_class}" do
               expect(expected_class).to receive(:new).with no_args
               @app.configure_logging
-              expect(Chef::Config[:log_location]).to be logger_instance
+              expect(Chef::Config[:log_location]).to eq([ logger_instance, STDOUT ])
             end
           end
         end
@@ -483,16 +491,14 @@ describe Chef::Application do
 
   describe "configuration errors" do
     before do
-      expect(Process).to receive(:exit)
+      allow(Process).to receive(:exit).and_return(true)
     end
 
     def raises_informative_fatals_on_configure_chef
       config_file_regexp = Regexp.new @app.config[:config_file]
-      expect(Chef::Log).to receive(:fatal)
-        .with(/Configuration error/)
-      expect(Chef::Log).to receive(:fatal)
-        .with(config_file_regexp)
-        .at_least(1).times
+      expect(Chef::Log).to receive(:fatal).with(/Configuration error/)
+      expect(Chef::Log).to receive(:fatal).with(config_file_regexp)
+      expect(Process).to receive(:exit).with(43).and_return(true)
       @app.configure_chef
     end
 

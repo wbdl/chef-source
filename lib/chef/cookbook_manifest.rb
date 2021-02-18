@@ -44,7 +44,7 @@ class Chef
     # cookbook_version in the "manifest" format, or #to_json to get a JSON
     # representation of the cookbook_version.
     #
-    # The inferface for this behavior is expected to change as we implement new
+    # The interface for this behavior is expected to change as we implement new
     # manifest formats. The entire class should be considered a private API for
     # now.
     #
@@ -282,7 +282,7 @@ class Chef
 
         name = File.join(segment, pathname.basename.to_s)
 
-        if segment == "templates" || segment == "files"
+        if %w{templates files}.include?(segment)
           # Check if pathname looks like files/foo or templates/foo (unscoped)
           if pathname.each_filename.to_a.length == 2
             # Use root_default in case the same path exists at root_default and default
@@ -317,6 +317,7 @@ class Chef
     end
 
   end
+
   class CookbookManifestVersions
 
     extend Chef::Mixin::VersionedAPIFactory

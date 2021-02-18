@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
@@ -22,7 +23,7 @@ module ChefUtils
     module Cloud
       include Internal
 
-      # Determine if the current node is "in the cloud".
+      # Determine if the current node is running in a known cloud.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -34,7 +35,18 @@ module ChefUtils
         !node["cloud"].nil?
       end
 
-      # Return true if the current current node is in EC2.
+      # Determine if the current node is running in Alibaba Cloud
+      #
+      # @param [Chef::Node] node the node to check
+      # @since 17.0
+      #
+      # @return [Boolean]
+      #
+      def alibaba?(node = __getnode)
+        node.key?("alibaba")
+      end
+
+      # Determine if the current node is running in AWS EC2.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -45,7 +57,7 @@ module ChefUtils
         node.key?("ec2")
       end
 
-      # Return true if the current current node is in GCE.
+      # Determine if the current node running in Google Compute Engine (GCE).
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -56,7 +68,7 @@ module ChefUtils
         node.key?("gce")
       end
 
-      # Return true if the current current node is in Rackspace.
+      # Determine if the current node is running in Rackspace.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -67,7 +79,7 @@ module ChefUtils
         node.key?("rackspace")
       end
 
-      # Return true if the current current node is in Eucalyptus.
+      # Determine if the current node is running in Eucalyptus.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -80,7 +92,7 @@ module ChefUtils
       # chef-sugar backcompat method
       alias_method :euca?, :eucalyptus?
 
-      # Return true if the current current node is in Linode.
+      # Determine if the current node is running in Linode.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -91,7 +103,7 @@ module ChefUtils
         node.key?("linode")
       end
 
-      # Return true if the current current node is in OpenStack.
+      # Determine if the current node is running in OpenStack.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -102,7 +114,7 @@ module ChefUtils
         node.key?("openstack")
       end
 
-      # Return true if the current current node is in Azure.
+      # Determine if the current node is running in Microsoft Azure.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -113,7 +125,7 @@ module ChefUtils
         node.key?("azure")
       end
 
-      # Return true if the current current node is in DigitalOcean.
+      # Determine if the current node is running in DigitalOcean.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8
@@ -126,7 +138,7 @@ module ChefUtils
       # chef-sugar backcompat method
       alias_method :digitalocean?, :digital_ocean?
 
-      # Return true if the current current node is in SoftLayer.
+      # Determine if the current node is running in SoftLayer (IBM Cloud).
       #
       # @param [Chef::Node] node the node to check
       # @since 15.8

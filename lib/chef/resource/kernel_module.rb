@@ -15,48 +15,61 @@ class Chef
 
       provides :kernel_module
 
-      description "Use the kernel_module resource to manage kernel modules on Linux systems. This resource can load, unload, blacklist, disable, install, and uninstall modules."
+      description "Use the **kernel_module** resource to manage kernel modules on Linux systems. This resource can load, unload, blacklist, disable, install, and uninstall modules."
       introduced "14.3"
       examples <<~DOC
         Install and load a kernel module, and ensure it loads on reboot.
+
         ```ruby
         kernel_module 'loop'
         ```
+
         Install and load a kernel with a specific set of options, and ensure it loads on reboot. Consult kernel module
         documentation for specific options that are supported.
+
         ```ruby
         kernel_module 'loop' do
           options [
             'max_loop=4',
-            'max_part=8'
+            'max_part=8',
           ]
         end
         ```
+
         Load a kernel module.
+
         ```ruby
         kernel_module 'loop' do
           action :load
         end
         ```
-        Unload a kernel module and remove module config, so it doesn’t load on reboot.
+
+        Unload a kernel module and remove module config, so it doesn't load on reboot.
+
         ```ruby
         kernel_module 'loop' do
           action :uninstall
         end
         ```
+
         Unload kernel module.
+
         ```ruby
         kernel_module 'loop' do
           action :unload
         end
         ```
+
         Blacklist a module from loading.
+
         ```ruby
         kernel_module 'loop' do
           action :blacklist
         end
         ```
+
         Disable a kernel module.
+
         ```ruby
         kernel_module 'loop' do
           action :disable
@@ -80,9 +93,7 @@ class Chef
         description: "The modprobe.d directory.",
         default: "/etc/modprobe.d"
 
-      action :install do
-        description "Load kernel module, and ensure it loads on reboot."
-
+      action :install, description: "Load kernel module, and ensure it loads on reboot" do
         with_run_context :root do
           find_resource(:execute, "update initramfs") do
             command initramfs_command
@@ -110,8 +121,7 @@ class Chef
         end
       end
 
-      action :uninstall do
-        description "Unload a kernel module and remove module config, so it doesn't load on reboot."
+      action :uninstall, description: "Unload a kernel module and remove module config, so it doesn't load on reboot" do
         with_run_context :root do
           find_resource(:execute, "update initramfs") do
             command initramfs_command
@@ -136,9 +146,7 @@ class Chef
         action_unload
       end
 
-      action :blacklist do
-        description "Blacklist a kernel module."
-
+      action :blacklist, description: "Blacklist a kernel module" do
         with_run_context :root do
           find_resource(:execute, "update initramfs") do
             command initramfs_command
@@ -154,9 +162,7 @@ class Chef
         action_unload
       end
 
-      action :disable do
-        description "Disable a kernel module."
-
+      action :disable, description: "Disable a kernel module" do
         with_run_context :root do
           find_resource(:execute, "update initramfs") do
             command initramfs_command
@@ -172,9 +178,7 @@ class Chef
         action_unload
       end
 
-      action :load do
-        description "Load a kernel module."
-
+      action :load, description: "Load a kernel module" do
         unless module_loaded?
           converge_by("load kernel module #{new_resource.modname}") do
             shell_out!("modprobe #{new_resource.modname}")
@@ -182,9 +186,7 @@ class Chef
         end
       end
 
-      action :unload do
-        description "Unload kernel module."
-
+      action :unload, description: "Unload kernel module" do
         if module_loaded?
           converge_by("unload kernel module #{new_resource.modname}") do
             shell_out!("modprobe -r #{new_resource.modname}")

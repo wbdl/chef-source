@@ -16,10 +16,10 @@
 # limitations under the License.
 #
 
-require "base64"
+autoload :Base64, "base64"
 require "digest/sha2" unless defined?(Digest::SHA2)
-require "openssl" unless defined?(OpenSSL)
-require "ffi_yajl" unless defined?(FFI_Yajl)
+autoload :OpenSSL, "openssl"
+autoload :FFI_Yajl, "ffi_yajl"
 require_relative "../encrypted_data_bag_item"
 require_relative "unsupported_encrypted_data_bag_item_format"
 require_relative "encryption_failure"
@@ -102,7 +102,7 @@ class Chef::EncryptedDataBagItem
           encryptor = OpenSSL::Cipher.new(algorithm)
           encryptor.encrypt
           # We must set key before iv: https://bugs.ruby-lang.org/issues/8221
-          encryptor.key = OpenSSL::Digest::SHA256.digest(key)
+          encryptor.key = OpenSSL::Digest.digest("SHA256", key)
           @iv ||= encryptor.random_iv
           encryptor.iv = @iv
           encryptor

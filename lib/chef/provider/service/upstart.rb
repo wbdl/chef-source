@@ -28,10 +28,6 @@ class Chef
         # to maintain a local state of service across restart's internal calls
         attr_accessor :upstart_service_running
 
-        provides :service, platform_family: "debian", override: true do
-          upstart?
-        end
-
         UPSTART_STATE_FORMAT = %r{\S+ \(?(start|stop)?\)? ?[/ ](\w+)}.freeze
 
         # Returns true if the configs for the service name has upstart variable
@@ -41,7 +37,7 @@ class Chef
 
         # Upstart does more than start or stop a service, creating multiple 'states' [1] that a service can be in.
         # In chef, when we ask a service to start, we expect it to have started before performing the next step
-        # since we have top down dependencies. Which is to say we may follow witha resource next that requires
+        # since we have top down dependencies. Which is to say we may follow with a resource next that requires
         # that service to be running. According to [2] we can trust that sending a 'goal' such as start will not
         # return until that 'goal' is reached, or some error has occurred.
         #
@@ -65,15 +61,8 @@ class Chef
             end
           end
 
-          platform, version = Chef::Platform.find_platform_and_version(run_context.node)
-          if platform == "ubuntu" && (8.04..9.04).cover?(version.to_f)
-            @upstart_job_dir = "/etc/event.d"
-            @upstart_conf_suffix = ""
-          else
-            @upstart_job_dir = "/etc/init"
-            @upstart_conf_suffix = ".conf"
-          end
-
+          @upstart_job_dir = "/etc/init"
+          @upstart_conf_suffix = ".conf"
           @command_success = true # new_resource.status_command= false, means upstart used
           @config_file_found = true
           @upstart_command_success = true
@@ -135,7 +124,7 @@ class Chef
             end
           end
           # Get enabled/disabled state by reading job configuration file
-          if ::File.exists?("#{@upstart_job_dir}/#{@new_resource.service_name}#{@upstart_conf_suffix}")
+          if ::File.exist?("#{@upstart_job_dir}/#{@new_resource.service_name}#{@upstart_conf_suffix}")
             logger.trace("#{@new_resource} found #{@upstart_job_dir}/#{@new_resource.service_name}#{@upstart_conf_suffix}")
             ::File.open("#{@upstart_job_dir}/#{@new_resource.service_name}#{@upstart_conf_suffix}", "r") do |file|
               while line = file.gets

@@ -185,7 +185,7 @@ describe Chef::Knife::Bootstrap do
     context "when :bootstrap_template config is set to a template name" do
       let(:bootstrap_template) { "example" }
 
-      let(:builtin_template_path) { File.expand_path(File.join(File.dirname(__FILE__), "../../../lib/chef/knife/bootstrap/templates", "example.erb")) }
+      let(:builtin_template_path) { File.expand_path(File.join(__dir__, "../../../lib/chef/knife/bootstrap/templates", "example.erb")) }
 
       let(:chef_config_dir_template_path) { "/knife/chef/config/bootstrap/example.erb" }
 
@@ -206,7 +206,7 @@ describe Chef::Knife::Bootstrap do
       end
 
       before(:each) do
-        expect(File).to receive(:exists?).with(bootstrap_template).and_return(false)
+        expect(File).to receive(:exist?).with(bootstrap_template).and_return(false)
       end
 
       context "when file is available everywhere" do
@@ -215,7 +215,7 @@ describe Chef::Knife::Bootstrap do
           configure_env_home
           configure_gem_files
 
-          expect(File).to receive(:exists?).with(builtin_template_path).and_return(true)
+          expect(File).to receive(:exist?).with(builtin_template_path).and_return(true)
         end
 
         it "should load the template from built-in templates" do
@@ -229,8 +229,8 @@ describe Chef::Knife::Bootstrap do
           configure_env_home
           configure_gem_files
 
-          expect(File).to receive(:exists?).with(builtin_template_path).and_return(false)
-          expect(File).to receive(:exists?).with(chef_config_dir_template_path).and_return(true)
+          expect(File).to receive(:exist?).with(builtin_template_path).and_return(false)
+          expect(File).to receive(:exist?).with(chef_config_dir_template_path).and_return(true)
 
           it "should load the template from chef_config_dir" do
             knife.find_template.should eq(chef_config_dir_template_path)
@@ -244,9 +244,9 @@ describe Chef::Knife::Bootstrap do
           configure_env_home
           configure_gem_files
 
-          expect(File).to receive(:exists?).with(builtin_template_path).and_return(false)
-          expect(File).to receive(:exists?).with(chef_config_dir_template_path).and_return(false)
-          expect(File).to receive(:exists?).with(env_home_template_path).and_return(true)
+          expect(File).to receive(:exist?).with(builtin_template_path).and_return(false)
+          expect(File).to receive(:exist?).with(chef_config_dir_template_path).and_return(false)
+          expect(File).to receive(:exist?).with(env_home_template_path).and_return(true)
         end
 
         it "should load the template from chef_config_dir" do
@@ -260,10 +260,10 @@ describe Chef::Knife::Bootstrap do
           configure_env_home
           configure_gem_files
 
-          expect(File).to receive(:exists?).with(builtin_template_path).and_return(false)
-          expect(File).to receive(:exists?).with(chef_config_dir_template_path).and_return(false)
-          expect(File).to receive(:exists?).with(env_home_template_path).and_return(false)
-          expect(File).to receive(:exists?).with(gem_files_template_path).and_return(true)
+          expect(File).to receive(:exist?).with(builtin_template_path).and_return(false)
+          expect(File).to receive(:exist?).with(chef_config_dir_template_path).and_return(false)
+          expect(File).to receive(:exist?).with(env_home_template_path).and_return(false)
+          expect(File).to receive(:exist?).with(gem_files_template_path).and_return(true)
         end
 
         it "should load the template from Gem files" do
@@ -277,9 +277,9 @@ describe Chef::Knife::Bootstrap do
           configure_gem_files
           allow(Chef::Util::PathHelper).to receive(:home).with(".chef", "bootstrap", "example.erb").and_return(nil)
 
-          expect(File).to receive(:exists?).with(builtin_template_path).and_return(false)
-          expect(File).to receive(:exists?).with(chef_config_dir_template_path).and_return(false)
-          expect(File).to receive(:exists?).with(gem_files_template_path).and_return(true)
+          expect(File).to receive(:exist?).with(builtin_template_path).and_return(false)
+          expect(File).to receive(:exist?).with(chef_config_dir_template_path).and_return(false)
+          expect(File).to receive(:exist?).with(gem_files_template_path).and_return(true)
         end
 
         it "should load the template from Gem files" do
@@ -320,7 +320,7 @@ describe Chef::Knife::Bootstrap do
 
     context "with bootstrap_attribute options" do
       let(:jsonfile) do
-        file = Tempfile.new (["node", ".json"])
+        file = Tempfile.new(["node", ".json"])
         File.open(file.path, "w") { |f| f.puts '{"foo":{"bar":"baz"}}' }
         file
       end
@@ -472,21 +472,13 @@ describe Chef::Knife::Bootstrap do
   end
 
   describe "when transferring trusted certificates" do
-    let(:trusted_certs_dir) { Chef::Util::PathHelper.cleanpath(File.join(File.dirname(__FILE__), "../../data/trusted_certs")) }
-
     let(:rendered_template) do
       knife.merge_configs
       knife.render_template
     end
 
     before do
-      Chef::Config[:trusted_certs_dir] = trusted_certs_dir
-      allow(IO).to receive(:read).and_call_original
-      allow(IO).to receive(:read).with(File.expand_path(Chef::Config[:validation_key])).and_return("")
-    end
-
-    def certificates
-      Dir[File.join(trusted_certs_dir, "*.{crt,pem}")]
+      Chef::Config[:trusted_certs_dir] = Chef::Util::PathHelper.cleanpath(File.join(CHEF_SPEC_DATA, "trusted_certs"))
     end
 
     it "creates /etc/chef/trusted_certs" do
@@ -494,27 +486,23 @@ describe Chef::Knife::Bootstrap do
     end
 
     it "copies the certificates in the directory" do
-      certificates.each do |cert|
-        expect(IO).to receive(:read).with(File.expand_path(cert))
-      end
+      certificates = Dir[File.join(Chef::Config[:trusted_certs_dir], "*.{crt,pem}")]
 
       certificates.each do |cert|
         expect(rendered_template).to match(%r{cat > /etc/chef/trusted_certs/#{File.basename(cert)} <<'EOP'})
       end
     end
 
-    context "when :trusted_cets_dir is empty" do
-      let(:trusted_certs_dir) { Chef::Util::PathHelper.cleanpath(File.join(File.dirname(__FILE__), "../../data/trusted_certs_empty")) }
-      it "doesn't create /etc/chef/trusted_certs if :trusted_certs_dir is empty" do
+    it "doesn't create /etc/chef/trusted_certs if :trusted_certs_dir is empty" do
+      Dir.mktmpdir do |dir|
+        Chef::Config[:trusted_certs_dir] = dir
         expect(rendered_template).not_to match(%r{mkdir -p /etc/chef/trusted_certs})
       end
     end
-
   end
 
   context "when doing fips things" do
     let(:template_file) { File.expand_path(File.join(CHEF_SPEC_DATA, "bootstrap", "no_proxy.erb")) }
-    let(:trusted_certs_dir) { Chef::Util::PathHelper.cleanpath(File.join(File.dirname(__FILE__), "../../data/trusted_certs")) }
 
     before do
       Chef::Config[:knife][:bootstrap_template] = template_file
@@ -570,7 +558,7 @@ describe Chef::Knife::Bootstrap do
     context "when client_d_dir is set" do
       let(:client_d_dir) do
         Chef::Util::PathHelper.cleanpath(
-          File.join(File.dirname(__FILE__), "../../data/client.d_00")
+          File.join(__dir__, "../../data/client.d_00")
         )
       end
 
@@ -597,7 +585,7 @@ describe Chef::Knife::Bootstrap do
       context "a nested directory structure" do
         let(:client_d_dir) do
           Chef::Util::PathHelper.cleanpath(
-            File.join(File.dirname(__FILE__), "../../data/client.d_01")
+            File.join(__dir__, "../../data/client.d_01")
           )
         end
         it "creates a file foo/bar.rb" do
@@ -1729,8 +1717,8 @@ describe Chef::Knife::Bootstrap do
         allow(vault_handler_mock).to receive(:doing_chef_vault?).and_return false
       end
 
-      it "shows a message" do
-        expect(knife.ui).to receive(:info)
+      it "shows a warning message" do
+        expect(knife.ui).to receive(:warn).twice
         knife.register_client
       end
     end
@@ -1738,7 +1726,8 @@ describe Chef::Knife::Bootstrap do
 
   describe "#perform_bootstrap" do
     let(:exit_status) { 0 }
-    let(:result_mock) { double("result", exit_status: exit_status, stderr: "A message") }
+    let(:stdout) { "" }
+    let(:result_mock) { double("result", exit_status: exit_status, stderr: "A message", stdout: stdout) }
 
     before do
       allow(connection).to receive(:hostname).and_return "testhost"
@@ -1751,12 +1740,13 @@ describe Chef::Knife::Bootstrap do
       expect(connection)
         .to receive(:run_command)
         .with("sh /path.sh")
-        .and_yield("output here")
+        .and_yield("output here", nil)
         .and_return result_mock
 
       expect(knife.ui).to receive(:msg).with(/testhost/)
       knife.perform_bootstrap("/path.sh")
     end
+
     context "when the remote command fails" do
       let(:exit_status) { 1 }
       it "shows an error and exits" do
@@ -1766,6 +1756,25 @@ describe Chef::Knife::Bootstrap do
           .and_return("sh /path.sh")
         expect(connection).to receive(:run_command).with("sh /path.sh").and_return result_mock
         expect { knife.perform_bootstrap("/path.sh") }.to raise_error(SystemExit)
+      end
+    end
+
+    context "when the remote command failed due to su auth error" do
+      let(:exit_status) { 1 }
+      let(:stdout) { "su: Authentication failure" }
+      let(:connection_obj) { double("connection", transport_options: {}) }
+      it "shows an error and exits" do
+        allow(connection).to receive(:connection).and_return(connection_obj)
+        expect(knife.ui).to receive(:info).with(/Bootstrapping.*/)
+        expect(knife).to receive(:bootstrap_command)
+          .with("/path.sh")
+          .and_return("su - USER -c 'sh /path.sh'")
+        expect(connection)
+          .to receive(:run_command)
+          .with("su - USER -c 'sh /path.sh'")
+          .and_yield("output here", nil)
+          .and_raise(Train::UserError)
+        expect { knife.perform_bootstrap("/path.sh") }.to raise_error(Train::UserError)
       end
     end
   end
@@ -1861,12 +1870,10 @@ describe Chef::Knife::Bootstrap do
           let(:connection_protocol) { "ssh" }
 
           it "warns, prompts for password, then reconnects with a password-enabled configuration using the new password" do
-            question_mock = double("question")
             expect(knife).to receive(:do_connect).and_raise(expected_error_password_prompt)
             expect(knife.ui).to receive(:warn).with(/Failed to auth.*/)
-            expect(knife.ui).to receive(:ask).and_yield(question_mock).and_return("newpassword")
+            expect(knife.ui).to receive(:ask).and_return("newpassword")
             # Ensure that we set echo off to prevent showing password on the screen
-            expect(question_mock).to receive(:echo=).with false
             expect(knife).to receive(:do_connect) do |opts|
               expect(opts[:password]).to eq "newpassword"
             end
@@ -1878,12 +1885,10 @@ describe Chef::Knife::Bootstrap do
           let(:connection_protocol) { "winrm" }
 
           it "warns, prompts for password, then reconnects with a password-enabled configuration using the new password for" do
-            question_mock = double("question")
             expect(knife).to receive(:do_connect).and_raise(expected_error_password_prompt_winrm)
             expect(knife.ui).to receive(:warn).with(/Failed to auth.*/)
-            expect(knife.ui).to receive(:ask).and_yield(question_mock).and_return("newpassword")
+            expect(knife.ui).to receive(:ask).and_return("newpassword")
             # Ensure that we set echo off to prevent showing password on the screen
-            expect(question_mock).to receive(:echo=).with false
             expect(knife).to receive(:do_connect) do |opts|
               expect(opts[:password]).to eq "newpassword"
             end
@@ -1927,6 +1932,7 @@ describe Chef::Knife::Bootstrap do
       Chef::Config[:knife][:test_key_c] = "c from Chef::Config"
       Chef::Config[:knife][:alt_test_key_c] = "alt c from Chef::Config"
       knife.merge_configs
+      Chef::Config[:treat_deprecation_warnings_as_errors] = false
     end
 
     it "returns the Chef::Config value from the cli when the CLI key is set" do
@@ -1979,7 +1985,25 @@ describe Chef::Knife::Bootstrap do
     context "under Linux" do
       let(:linux_test) { true }
       it "prefixes the command to run under sh" do
-        expect(knife.bootstrap_command("bootstrap")).to eq "sh bootstrap"
+        expect(knife.bootstrap_command("bootstrap.sh")).to eq "sh bootstrap.sh"
+      end
+
+      context "with --su-user option" do
+        let(:connection_obj) { double("connection", transport_options: {}) }
+        before do
+          knife.config[:su_user] = "root"
+          allow(connection).to receive(:connection).and_return(connection_obj)
+        end
+        it "prefixes the command to run using su -USER -c" do
+          expect(knife.bootstrap_command("bootstrap.sh")).to eq "su - #{knife.config[:su_user]} -c 'sh bootstrap.sh'"
+          expect(connection_obj.transport_options.key?(:pty)).to eq true
+        end
+
+        it "sudo appended if --sudo option enabled" do
+          knife.config[:use_sudo] = true
+          expect(knife.bootstrap_command("bootstrap.sh")).to eq "sudo su - #{knife.config[:su_user]} -c 'sh bootstrap.sh'"
+          expect(connection_obj.transport_options.key?(:pty)).to eq true
+        end
       end
     end
   end

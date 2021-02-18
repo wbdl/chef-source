@@ -20,7 +20,7 @@ require "spec_helper"
 require "tmpdir"
 
 # Deploy relies heavily on symlinks, so it doesn't work on windows.
-describe Chef::Resource::Git, requires_git: true do
+describe Chef::Resource::Git do
   include RecipeDSLHelper
 
   # Some versions of git complains when the deploy directory is
@@ -74,11 +74,6 @@ describe Chef::Resource::Git, requires_git: true do
     expect(rev_ver).to eq(version)
   end
 
-  def expect_branch_upstream_to_be(branch, upstream)
-    branch_upstream = shell_out("git", "rev-parse", "--abbrev-ref", "#{branch}@{upstream}", cwd: deploy_directory).stdout.strip
-    expect(branch_upstream).to eq(upstream)
-  end
-
   def expect_branch_to_be(branch)
     head_branch = shell_out!("git name-rev --name-only HEAD", cwd: deploy_directory).stdout.strip
     expect(head_branch).to eq(branch)
@@ -108,7 +103,7 @@ describe Chef::Resource::Git, requires_git: true do
         revision "v1.0.0"
       end.should_be_updated
       expect_revision_to_be("HEAD", v1_commit)
-      expect_branch_to_be("tags/v1.0.0^0") # detatched
+      expect_branch_to_be("tags/v1.0.0^0") # detached
       # also verify the tag commit itself is what we expect as an extra sanity check
       expect_revision_to_be("v1.0.0", v1_tag)
     end
@@ -121,7 +116,7 @@ describe Chef::Resource::Git, requires_git: true do
       git deploy_directory do
         repository origin_repo
         revision "v1.0.0"
-        expect_branch_to_be("tags/v1.0.0^0") # detatched
+        expect_branch_to_be("tags/v1.0.0^0") # detached
       end.should_not_be_updated
     end
   end
@@ -133,7 +128,7 @@ describe Chef::Resource::Git, requires_git: true do
         revision rev_foo
       end.should_be_updated
       expect_revision_to_be("HEAD", rev_foo)
-      expect_branch_to_be("master~1") # detatched
+      expect_branch_to_be("master~1") # detached
     end
 
     it "checks out the expected revision ed18 to a local branch" do
@@ -143,7 +138,7 @@ describe Chef::Resource::Git, requires_git: true do
         checkout_branch "deploy"
       end.should_be_updated
       expect_revision_to_be("HEAD", rev_foo)
-      expect_branch_to_be("deploy") # detatched
+      expect_branch_to_be("deploy") # detached
     end
 
     it "doesn't update if up-to-date" do
@@ -157,7 +152,7 @@ describe Chef::Resource::Git, requires_git: true do
         repository origin_repo
         revision rev_foo
       end.should_not_be_updated
-      expect_branch_to_be("master~1") # detatched
+      expect_branch_to_be("master~1") # detached
     end
 
     it "checks out the expected revision 972d" do
@@ -166,7 +161,7 @@ describe Chef::Resource::Git, requires_git: true do
         revision rev_testing
       end.should_be_updated
       expect_revision_to_be("HEAD", rev_testing)
-      expect_branch_to_be("master~2") # detatched
+      expect_branch_to_be("master~2") # detached
     end
 
     it "checks out the expected revision 972d to a local branch" do
@@ -219,7 +214,6 @@ describe Chef::Resource::Git, requires_git: true do
       git deploy_directory do
         repository origin_repo
       end.should_be_updated
-      expect_branch_upstream_to_be("master", "origin/master")
       expect_revision_to_be("HEAD", rev_head)
       expect_branch_to_be("master")
     end
@@ -242,6 +236,28 @@ describe Chef::Resource::Git, requires_git: true do
       end.should_be_updated
       expect_revision_to_be("HEAD", rev_head)
       expect_branch_to_be("deploy")
+    end
+  end
+
+  context "when updating a branch that's already checked out out" do
+    it "checks out master, commits to the repo, and checks out the latest changes" do
+      git deploy_directory do
+        repository origin_repo
+        revision "master"
+        action :sync
+      end.should_be_updated
+
+      # We don't have a way to test a commit in the git bundle
+      # Revert to a previous commit in the same branch and make sure we can still sync.
+      shell_out!("git", "reset", "--hard", rev_foo, cwd: deploy_directory)
+
+      git deploy_directory do
+        repository origin_repo
+        revision "master"
+        action :sync
+      end.should_be_updated
+      expect_revision_to_be("HEAD", rev_head)
+      expect_branch_to_be("master")
     end
   end
 

@@ -140,7 +140,7 @@ describe "LWRP" do
     before do
       @tmpdir = Dir.mktmpdir("lwrp_test")
       @lwrp_path = File.join(@tmpdir, "foo.rb")
-      content = IO.read(File.expand_path("../../data/lwrp/resources/foo.rb", __FILE__))
+      content = IO.read(File.expand_path("../data/lwrp/resources/foo.rb", __dir__))
       IO.write(@lwrp_path, content)
       Chef::Resource::LWRPBase.build_from_file("lwrp", @lwrp_path, nil)
       @original_resource = Chef::ResourceResolver.resolve(:lwrp_foo)
@@ -152,7 +152,7 @@ describe "LWRP" do
 
     context "And the LWRP is asked to load again, this time with different code" do
       before do
-        content = IO.read(File.expand_path("../../data/lwrp_override/resources/foo.rb", __FILE__))
+        content = IO.read(File.expand_path("../data/lwrp_override/resources/foo.rb", __dir__))
         IO.write(@lwrp_path, content)
         Chef::Resource::LWRPBase.build_from_file("lwrp", @lwrp_path, nil)
       end
@@ -169,7 +169,7 @@ describe "LWRP" do
   describe "Lightweight Chef::Resource" do
 
     before do
-      Dir[File.expand_path(File.join(File.dirname(__FILE__), "..", "data", "lwrp", "resources", "*"))].each do |file|
+      Dir[File.expand_path(File.join(__dir__, "..", "data", "lwrp", "resources", "*"))].each do |file|
         Chef::Resource::LWRPBase.build_from_file("lwrp", file, nil)
       end
     end
@@ -211,7 +211,7 @@ describe "LWRP" do
       node.normal[:penguin_name] = "jackass"
       run_context = Chef::RunContext.new(node, Chef::CookbookCollection.new, @events)
 
-      Dir[File.expand_path(File.join(File.dirname(__FILE__), "..", "data", "lwrp", "resources_with_default_attributes", "*"))].each do |file|
+      Dir[File.expand_path(File.join(__dir__, "..", "data", "lwrp", "resources_with_default_attributes", "*"))].each do |file|
         Chef::Resource::LWRPBase.build_from_file("lwrp", file, run_context)
       end
 
@@ -390,11 +390,11 @@ describe "LWRP" do
     end
 
     before(:each) do
-      Dir[File.expand_path(File.expand_path("../../data/lwrp/resources/*", __FILE__))].each do |file|
+      Dir[File.expand_path(File.expand_path("../data/lwrp/resources/*", __dir__))].each do |file|
         Chef::Resource::LWRPBase.build_from_file(lwrp_cookbook_name, file, run_context)
       end
 
-      Dir[File.expand_path(File.expand_path("../../data/lwrp/providers/*", __FILE__))].each do |file|
+      Dir[File.expand_path(File.expand_path("../data/lwrp/providers/*", __dir__))].each do |file|
         Chef::Provider::LWRPBase.build_from_file(lwrp_cookbook_name, file, run_context)
       end
     end
@@ -653,14 +653,17 @@ describe "LWRP" do
       end
     end
 
-    let(:recipe) do
-      cookbook_repo = File.expand_path(File.join(File.dirname(__FILE__), "..", "data", "cookbooks"))
+    let(:run_context) do
+      cookbook_repo = File.expand_path(File.join(__dir__, "..", "data", "cookbooks"))
       cookbook_loader = Chef::CookbookLoader.new(cookbook_repo)
       cookbook_loader.load_cookbooks
       cookbook_collection = Chef::CookbookCollection.new(cookbook_loader)
       node = Chef::Node.new
       events = Chef::EventDispatch::Dispatcher.new
-      run_context = Chef::RunContext.new(node, cookbook_collection, events)
+      Chef::RunContext.new(node, cookbook_collection, events)
+    end
+
+    let(:recipe) do
       Chef::Recipe.new("hjk", "test", run_context)
     end
 

@@ -53,7 +53,7 @@ it is created, so registration may be accomplished easily:
 If one of the prior methods is not used to register for the Action Collection, then the Action Collection will disable itself and will not compile
 the Action Collection in order to not waste the memory overhead of tracking the actions during the run.  The Data Collector takes advantage of this
 since if the run start message from the Data Collector is refused by the server, then the Data Collector disables itself, and then does not register
-with the Action Collection, which would disable the Action Collection.  This makes use of the delayed hooking through the `action_collection_regsitration`
+with the Action Collection, which would disable the Action Collection.  This makes use of the delayed hooking through the `action_collection_registration`
 so that the Data Collector never registers itself after it is disabled.
 
 ## Searching
@@ -76,6 +76,39 @@ NOTE:
 As the Action Collection API was initially designed around the Resource Reporter and Data Collector use cases, the searching API is currently rudimentary
 and could easily lift some of the searching features on the name of the resource from the resource collection, and could use a more fluent API
 for composing searches.
+
+# Simple Example
+
+A simple example which can be put into any cookbook's libraries directory and will dump out a list of all the updated (or failed) resources at the end
+of the run is the following:
+
+```
+Chef.run_context.action_collection.register(self)
+
+Chef.event_handler do
+  on :run_completed do
+    MyModule.dump_resources
+  end
+  on :run_failed do
+    MyModule.dump_resources
+  end
+end
+
+class MyModule
+  def self.dump_resources
+    Chef.run_context.action_collection.filtered_collection(up_to_date: false, skipped: false, unprocessed: false).each do |action_record|
+      puts action_record.new_resource
+    end
+  end
+end
+```
+
+For more complicated examples see the `Chef::ResourceReporter` and `Chef::DataCollector` in the source code.
+
+Note that any cookbook library event handlers obviously cannot handle failures that happen earlier in the chef-client run than cookbook library loading
+time.  For more truly robust reporting it is best to use the `Chef::DataCollector` directly.  A custom implementation would look like copying the defensive
+coding in the data collector into a class which was loaded very early, perhaps at `Chef::Config` loading time (catching errors caused by `Chef::Config` loading
+though is fairly impossible the way the core of the chef-client works though so it is better to keep that simple).
 
 # Implementation Details
 

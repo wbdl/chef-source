@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
@@ -25,7 +26,7 @@ module ChefUtils
       # Lookup an executable through the systems search PATH.  Allows specifying an array
       # of executables to look for.  The first executable that is found, along any path entry,
       # will be the preferred one and returned first.  The extra_path will override any default
-      # extra_paths which are added (allwing the user to pass an empty array to remove them).
+      # extra_paths which are added (allowing the user to pass an empty array to remove them).
       #
       # When passed a block the block will be called with the full pathname of any executables
       # which are found, and the block should return truthy or falsey values to further filter
@@ -34,7 +35,7 @@ module ChefUtils
       # This is syntactic sugar for `where(...).first`
       #
       # This helper can be used in target mode in chef or with train using the appropriate
-      # wiring extenerally.
+      # wiring externally.
       #
       # @example Find the most appropriate python executable, searching through the system PATH
       #          plus additionally the "/usr/libexec" directory, which has the dnf libraries
@@ -55,14 +56,14 @@ module ChefUtils
       # Lookup all the instances of an an executable that can be found through the systems search PATH.
       # Allows specifying an array of executables to look for.  All the instances of the first executable
       # that is found will be returned first.  The extra_path will override any default extra_paths
-      # which are added (allwing the user to pass an empty array to remove them).
+      # which are added (allowing the user to pass an empty array to remove them).
       #
       # When passed a block the block will be called with the full pathname of any executables
       # which are found, and the block should return truthy or falsey values to further filter
       # the executable based on arbitrary criteria.
       #
       # This helper can be used in target mode in chef or with train using the appropriate
-      # wiring extenerally.
+      # wiring externally.
       #
       # @example Find all the python executables, searching through the system PATH plus additionally
       #          the "/usr/libexec" directory, which have the dnf libraries installed and available.
@@ -79,11 +80,15 @@ module ChefUtils
         extra_path ||= __extra_path
         paths = __env_path.split(File::PATH_SEPARATOR) + Array(extra_path)
         paths.uniq!
+        exts = ENV["PATHEXT"] ? ENV["PATHEXT"].split(";") : []
+        exts.unshift("")
         cmds.map do |cmd|
           paths.map do |path|
-            filename = File.join(path, cmd)
-            filename if __valid_executable?(filename, &block)
-          end.compact
+            exts.map do |ext|
+              filename = File.join(path, "#{cmd}#{ext}")
+              filename if __valid_executable?(filename, &block)
+            end.compact
+          end
         end.flatten
       end
 

@@ -130,9 +130,12 @@ class Chef
           # which tricks Chef::REST into decompressing the response body. In this
           # case you'd end up with a tar archive (no gzip) named, e.g., foo.tgz,
           # which is not what you wanted.
-          if uri.to_s =~ /gz$/
+          if /gz$/.match?(uri.to_s)
             logger.trace("Turning gzip compression off due to filename ending in gz")
             opts[:disable_gzip] = true
+          end
+          if new_resource.ssl_verify_mode
+            opts[:ssl_verify_mode] = new_resource.ssl_verify_mode
           end
           opts
         end

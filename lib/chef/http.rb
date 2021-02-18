@@ -22,10 +22,13 @@
 #
 
 require "tempfile" unless defined?(Tempfile)
-require "net/https"
-require "uri" unless defined?(URI)
+autoload :OpenSSL, "openssl"
+autoload :URI, "uri"
+module Net
+  autoload :HTTP, "net/http"
+  autoload :HTTPClientException, "net/http"
+end
 require_relative "http/basic_client"
-require_relative "monkey_patches/net_http"
 require_relative "config"
 require_relative "platform/query_helpers"
 require_relative "exceptions"
@@ -52,13 +55,12 @@ class Chef
 
       def handle_chunk(next_chunk)
         # stream handlers handle responses so must be applied in reverse order
-        # (same as #apply_stream_complete_middleware or #apply_response_midddleware)
+        # (same as #apply_stream_complete_middleware or #apply_response_middleware)
         @stream_handlers.reverse.inject(next_chunk) do |chunk, handler|
           Chef::Log.trace("Chef::HTTP::StreamHandler calling #{handler.class}#handle_chunk")
           handler.handle_chunk(chunk)
         end
       end
-
     end
 
     def self.middlewares
@@ -155,7 +157,7 @@ class Chef
     rescue Net::HTTPClientException => e
       http_attempts += 1
       response = e.response
-      if response.is_a?(Net::HTTPNotAcceptable) && version_retries - http_attempts > 0
+      if response.is_a?(Net::HTTPNotAcceptable) && version_retries - http_attempts >= 0
         Chef::Log.trace("Negotiating protocol version with #{url}, retry #{http_attempts}/#{version_retries}")
         retry
       else
@@ -163,10 +165,6 @@ class Chef
       end
     rescue Exception => exception
       log_failed_request(response, return_value) unless response.nil?
-
-      if exception.respond_to?(:chef_rest_request=)
-        exception.chef_rest_request = rest_request
-      end
       raise
     end
 
@@ -194,7 +192,7 @@ class Chef
     rescue Net::HTTPClientException => e
       http_attempts += 1
       response = e.response
-      if response.is_a?(Net::HTTPNotAcceptable) && version_retries - http_attempts > 0
+      if response.is_a?(Net::HTTPNotAcceptable) && version_retries - http_attempts >= 0
         Chef::Log.trace("Negotiating protocol version with #{url}, retry #{http_attempts}/#{version_retries}")
         retry
       else
@@ -202,9 +200,6 @@ class Chef
       end
     rescue Exception => e
       log_failed_request(response, return_value) unless response.nil?
-      if e.respond_to?(:chef_rest_request=)
-        e.chef_rest_request = rest_request
-      end
       raise
     end
 
@@ -250,7 +245,7 @@ class Chef
     rescue Net::HTTPClientException => e
       http_attempts += 1
       response = e.response
-      if response.is_a?(Net::HTTPNotAcceptable) && version_retries - http_attempts > 0
+      if response.is_a?(Net::HTTPNotAcceptable) && version_retries - http_attempts >= 0
         Chef::Log.trace("Negotiating protocol version with #{url}, retry #{http_attempts}/#{version_retries}")
         retry
       else
@@ -258,9 +253,6 @@ class Chef
       end
     rescue Exception => e
       log_failed_request(response, return_value) unless response.nil?
-      if e.respond_to?(:chef_rest_request=)
-        e.chef_rest_request = rest_request
-      end
       raise
     end
 
@@ -269,7 +261,7 @@ class Chef
       if keepalives && !base_url.nil?
         # only reuse the http_client if we want keepalives and have a base_url
         @http_client ||= {}
-        # the per-host per-port cache here gets peristent connections correct when
+        # the per-host per-port cache here gets persistent connections correct when
         # redirecting to different servers
         if base_url.is_a?(String) # sigh, this kind of abuse can't happen with strongly typed languages
           @http_client[base_url] ||= build_http_client(base_url)
@@ -292,6 +284,21 @@ class Chef
     private
 
     # @api private
+    def ssl_policy
+      return Chef::HTTP::APISSLPolicy unless @options[:ssl_verify_mode]
+
+      case @options[:ssl_verify_mode]
+      when :verify_none
+        Chef::HTTP::VerifyNoneSSLPolicy
+      when :verify_peer
+        Chef::HTTP::VerifyPeerSSLPolicy
+      else
+        Chef::Log.error("Chef::HTTP was passed an ssl_verify_mode of #{@options[:ssl_verify_mode]} which is unsupported. Falling back to the API policy")
+        Chef::HTTP::APISSLPolicy
+      end
+    end
+
+    # @api private
     def build_http_client(base_url)
       if chef_zero_uri?(base_url)
         # PERFORMANCE CRITICAL: *MUST* lazy require here otherwise we load up webrick
@@ -304,7 +311,7 @@ class Chef
 
         SocketlessChefZeroClient.new(base_url)
       else
-        BasicClient.new(base_url, ssl_policy: Chef::HTTP::APISSLPolicy, keepalives: keepalives)
+        BasicClient.new(base_url, ssl_policy: ssl_policy, keepalives: keepalives)
       end
     end
 
@@ -312,7 +319,7 @@ class Chef
     def create_url(path)
       return path if path.is_a?(URI)
 
-      if path =~ %r{^(http|https|chefzero)://}i
+      if %r{^(http|https|chefzero)://}i.match?(path)
         URI.parse(path)
       elsif path.nil? || path.empty?
         URI.parse(@url)
@@ -414,7 +421,7 @@ class Chef
           response, request, return_value = yield
           # handle HTTP 50X Error
           if response.is_a?(Net::HTTPServerError) && !Chef::Config.local_mode
-            if http_retry_count - http_attempts + 1 > 0
+            if http_retry_count - http_attempts >= 0
               sleep_time = 1 + (2**http_attempts) + rand(2**http_attempts)
               Chef::Log.error("Server returned error #{response.code} for #{url}, retrying #{http_attempts}/#{http_retry_count} in #{sleep_time}s")
               sleep(sleep_time)
@@ -424,7 +431,7 @@ class Chef
           return [response, request, return_value]
         end
       rescue SocketError, Errno::ETIMEDOUT, Errno::ECONNRESET => e
-        if http_retry_count - http_attempts + 1 > 0
+        if http_retry_count - http_attempts >= 0
           Chef::Log.error("Error connecting to #{url}, retry #{http_attempts}/#{http_retry_count}")
           sleep(http_retry_delay)
           retry
@@ -432,21 +439,21 @@ class Chef
         e.message.replace "Error connecting to #{url} - #{e.message}"
         raise e
       rescue Errno::ECONNREFUSED
-        if http_retry_count - http_attempts + 1 > 0
+        if http_retry_count - http_attempts >= 0
           Chef::Log.error("Connection refused connecting to #{url}, retry #{http_attempts}/#{http_retry_count}")
           sleep(http_retry_delay)
           retry
         end
         raise Errno::ECONNREFUSED, "Connection refused connecting to #{url}, giving up"
       rescue Timeout::Error
-        if http_retry_count - http_attempts + 1 > 0
+        if http_retry_count - http_attempts >= 0
           Chef::Log.error("Timeout connecting to #{url}, retry #{http_attempts}/#{http_retry_count}")
           sleep(http_retry_delay)
           retry
         end
         raise Timeout::Error, "Timeout connecting to #{url}, giving up"
       rescue OpenSSL::SSL::SSLError => e
-        if (http_retry_count - http_attempts + 1 > 0) && !e.message.include?("certificate verify failed")
+        if (http_retry_count - http_attempts >= 0) && !e.message.include?("certificate verify failed")
           Chef::Log.error("SSL Error connecting to #{url}, retry #{http_attempts}/#{http_retry_count}")
           sleep(http_retry_delay)
           retry
@@ -456,7 +463,7 @@ class Chef
     end
 
     def version_retries
-      @version_retries ||= options[:version_class].possible_requests
+      @version_retries ||= options[:version_class]&.possible_requests || 1
     end
 
     # @api private

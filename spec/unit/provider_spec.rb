@@ -20,6 +20,7 @@ require "spec_helper"
 
 class NoWhyrunDemonstrator < Chef::Provider
   attr_reader :system_state_altered
+
   def whyrun_supported?
     false
   end
@@ -186,14 +187,6 @@ describe Chef::Provider do
         expect { provider.run_action(:foo) }.to raise_error(Chef::Exceptions::InvalidResourceSpecification)
       end
 
-    end
-  end
-
-  context "when using use_inline_resources" do
-    it "should log a deprecation warning" do
-      pending Chef::VERSION.start_with?("14.1")
-      expect(Chef).to receive(:deprecated).with(:use_inline_resources, kind_of(String))
-      Class.new(described_class) { use_inline_resources }
     end
   end
 end

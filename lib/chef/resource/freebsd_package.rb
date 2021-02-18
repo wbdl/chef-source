@@ -29,7 +29,7 @@ class Chef
       provides :freebsd_package
       provides :package, platform: "freebsd"
 
-      description "Use the freebsd_package resource to manage packages for the FreeBSD platform."
+      description "Use the **freebsd_package** resource to manage packages for the FreeBSD platform."
 
       # make sure we assign the appropriate underlying providers based on what
       # package managers exist on this FreeBSD system or the source of the package
@@ -42,7 +42,7 @@ class Chef
       private
 
       def assign_provider
-        @provider = if source.to_s =~ /^ports$/i
+        @provider = if /^ports$/i.match?(source.to_s)
                       Chef::Provider::Package::Freebsd::Port
                     else
                       Chef::Provider::Package::Freebsd::Pkgng

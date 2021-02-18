@@ -71,9 +71,9 @@ class Chef
       # part that actually exists.  The paths operated on here are not Chef-FS paths.
       # These are OS paths that may contain symlinks but may not also fully exist.
       #
-      # If /x is a symlink to /blarghle, and has no subdirectories, then:
-      # PathUtils.realest_path('/x/y/z') == '/blarghle/y/z'
-      # PathUtils.realest_path('/x/*/z') == '/blarghle/*/z'
+      # If /x is a symlink to /foo_bar, and has no subdirectories, then:
+      # PathUtils.realest_path('/x/y/z') == '/foo_bar/y/z'
+      # PathUtils.realest_path('/x/*/z') == '/foo_bar/*/z'
       # PathUtils.realest_path('/*/y/z') == '/*/y/z'
       #
       # TODO: Move this to wherever util/path_helper is these days.
@@ -118,7 +118,7 @@ class Chef
 
         if ancestor.length == path.length
           ""
-        elsif path[ancestor.length, 1] =~ /#{PathUtils.regexp_path_separator}/
+        elsif /#{PathUtils.regexp_path_separator}/.match?(path[ancestor.length, 1])
           path[ancestor.length + 1..-1]
         else
           nil

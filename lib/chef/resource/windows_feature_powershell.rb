@@ -23,10 +23,39 @@ require_relative "../platform/query_helpers"
 class Chef
   class Resource
     class WindowsFeaturePowershell < Chef::Resource
+      unified_mode true
+
       provides(:windows_feature_powershell) { true }
 
-      description "Use the windows_feature_powershell resource to add, remove, or entirely delete Windows features and roles using PowerShell. This resource offers significant speed benefits over the windows_feature_dism resource, but requires installation of the Remote Server Administration Tools on non-server releases of Windows."
+      description "Use the **windows_feature_powershell** resource to add, remove, or entirely delete Windows features and roles using PowerShell. This resource offers significant speed benefits over the windows_feature_dism resource, but requires installation of the Remote Server Administration Tools on non-server releases of Windows."
       introduced "14.0"
+      examples <<~DOC
+      **Add the SMTP Server feature**:
+
+      ```ruby
+      windows_feature_powershell "smtp-server" do
+        action :install
+        all true
+      end
+      ```
+
+      **Install multiple features using one resource**:
+
+      ```ruby
+      windows_feature_powershell ['Web-Asp-Net45', 'Web-Net-Ext45'] do
+        action :install
+      end
+      ```
+
+      **Install the Network Policy and Access Service feature**:
+
+      ```ruby
+      windows_feature_powershell 'NPAS' do
+        action :install
+        management_tools true
+      end
+      ```
+      DOC
 
       property :feature_name, [Array, String],
         description: "The name of the feature(s) or role(s) to install if they differ from the resource block's name.",
@@ -37,7 +66,7 @@ class Chef
         description: "Specify a local repository for the feature install."
 
       property :all, [TrueClass, FalseClass],
-        description: "Install all subfeatures. When set to 'true', this is the equivalent of specifying the '-InstallAllSubFeatures' switch with 'Add-WindowsFeature'.",
+        description: "Install all subfeatures. When set to `true`, this is the equivalent of specifying the `-InstallAllSubFeatures` switch with `Add-WindowsFeature`.",
         default: false
 
       property :timeout, Integer,
@@ -114,8 +143,12 @@ class Chef
       action_class do
         # @return [Array] features the user has requested to install which need installation
         def features_to_install
-          # the intersection of the features to install & disabled features are what needs installing
-          @install ||= new_resource.feature_name & node["powershell_features_cache"]["disabled"]
+          # the intersection of the features to install & disabled/removed features are what needs installing
+          @features_to_install ||= begin
+            features = node["powershell_features_cache"]["disabled"]
+            features |= node["powershell_features_cache"]["removed"] if new_resource.source
+            new_resource.feature_name & features
+          end
         end
 
         # @return [Array] features the user has requested to remove which need removing
@@ -155,6 +188,12 @@ class Chef
         # @return [void]
         def reload_cached_powershell_data
           Chef::Log.debug("Caching Windows features available via Get-WindowsFeature.")
+
+          #
+          # FIXME FIXME FIXME
+          # The node object should not be used for caching state like this and this is not a public API and may break.
+          # FIXME FIXME FIXME
+          #
           node.override["powershell_features_cache"] = Mash.new
           node.override["powershell_features_cache"]["enabled"] = []
           node.override["powershell_features_cache"]["disabled"] = []

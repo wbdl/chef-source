@@ -28,6 +28,7 @@ class Chef
 
         UPDATE_RC_D_ENABLED_MATCHES = %r{/rc[\dS].d/S|not installed}i.freeze
         UPDATE_RC_D_PRIORITIES = %r{/rc([\dS]).d/([SK])(\d\d)}i.freeze
+        RUNLEVELS = %w{ 1 2 3 4 5 S }.freeze
 
         def self.supports?(resource, action)
           service_script_exist?(:initd, resource.service_name)
@@ -45,7 +46,7 @@ class Chef
           shared_resource_requirements
           requirements.assert(:all_actions) do |a|
             update_rcd = "/usr/sbin/update-rc.d"
-            a.assertion { ::File.exists? update_rcd }
+            a.assertion { ::File.exist? update_rcd }
             a.failure_message Chef::Exceptions::Service, "#{update_rcd} does not exist!"
             # no whyrun recovery - this is a base system component of debian
             # distros and must be present
@@ -76,9 +77,9 @@ class Chef
 
           in_info = false
           ::File.readlines(path).each_with_object([]) do |line, acc|
-            if line =~ /^### BEGIN INIT INFO/
+            if /^### BEGIN INIT INFO/.match?(line)
               in_info = true
-            elsif line =~ /^### END INIT INFO/
+            elsif /^### END INIT INFO/.match?(line)
               break acc
             elsif in_info
               if line =~ /Default-(Start|Stop):\s+(\d.*)/
@@ -121,7 +122,7 @@ class Chef
           priority.each do |runlevel, arguments|
             logger.trace("#{new_resource} runlevel #{runlevel}, action #{arguments[0]}, priority #{arguments[1]}")
             # if we are in a update-rc.d default startup runlevel && we start in this runlevel
-            if %w{ 1 2 3 4 5 S }.include?(runlevel) && arguments[0] == :start
+            if RUNLEVELS.include?(runlevel) && arguments[0] == :start
               enabled = true
             end
           end

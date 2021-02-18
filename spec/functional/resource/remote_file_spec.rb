@@ -112,7 +112,7 @@ describe Chef::Resource::RemoteFile do
                       SSLPrivateKey: key,
                       RequestTimeout: 1 }
 
-      start_tiny_server(server_opts)
+      start_tiny_server(**server_opts)
     end
 
     after(:all) do
@@ -134,7 +134,7 @@ describe Chef::Resource::RemoteFile do
       let(:smb_file_local_file_name) { "smb_file.txt" }
       let(:smb_file_local_path) { File.join( smb_share_root_directory, smb_file_local_file_name ) }
       let(:smb_share_name) { "chef_smb_test" }
-      let(:smb_remote_path) { File.join("//#{ENV["COMPUTERNAME"]}", smb_share_name, smb_file_local_file_name).gsub(%r{/}, "\\") }
+      let(:smb_remote_path) { File.join("//#{ENV["COMPUTERNAME"]}", smb_share_name, smb_file_local_file_name).tr("/", "\\") }
       let(:smb_file_content) { "hellofun" }
       let(:local_destination_path) { File.join(Dir.tmpdir, make_tmpname("chef_remote_file")) }
       let(:windows_current_user) { ENV["USERNAME"] }
@@ -155,7 +155,7 @@ describe Chef::Resource::RemoteFile do
       before do
         shell_out("net.exe share #{smb_share_name} /delete")
         File.write(smb_file_local_path, smb_file_content )
-        shell_out!("net.exe share #{smb_share_name}=\"#{smb_share_root_directory.gsub(%r{/}, '\\')}\" /grant:\"authenticated users\",read")
+        shell_out!("net.exe share #{smb_share_name}=\"#{smb_share_root_directory.tr("/", '\\')}\" /grant:\"authenticated users\",read")
       end
 
       after do
@@ -229,8 +229,8 @@ describe Chef::Resource::RemoteFile do
           end
 
           context "when the resource is accessed using an alternate user's identity with no access to the file" do
-            let (:windows_nonadmin_user) { "chefremfile1" }
-            let (:windows_nonadmin_user_password) { "j82ajfxK3;2Xe1" }
+            let(:windows_nonadmin_user) { "chefremfile1" }
+            let(:windows_nonadmin_user_password) { "j82ajfxK3;2Xe1" }
             include_context "a non-admin Windows user"
 
             before do
@@ -246,8 +246,8 @@ describe Chef::Resource::RemoteFile do
         end
 
         context "when the the file is only accessible as a specific alternate identity" do
-          let (:windows_nonadmin_user) { "chefremfile2" }
-          let (:windows_nonadmin_user_password) { "j82ajfxK3;2Xe2" }
+          let(:windows_nonadmin_user) { "chefremfile2" }
+          let(:windows_nonadmin_user_password) { "j82ajfxK3;2Xe2" }
           include_context "a non-admin Windows user"
 
           before do
@@ -279,8 +279,8 @@ describe Chef::Resource::RemoteFile do
           end
 
           context "when the resource is accessed using an alternate user's identity with no access to the file" do
-            let (:windows_nonadmin_user) { "chefremfile3" }
-            let (:windows_nonadmin_user_password) { "j82ajfxK3;2Xe3" }
+            let(:windows_nonadmin_user) { "chefremfile3" }
+            let(:windows_nonadmin_user_password) { "j82ajfxK3;2Xe3" }
             include_context "a non-admin Windows user"
 
             let(:remote_user) { windows_nonadmin_user_qualified }
@@ -409,13 +409,7 @@ describe Chef::Resource::RemoteFile do
       it "should not create the file" do
         # This can legitimately raise either Errno::EADDRNOTAVAIL or Errno::ECONNREFUSED
         # in different Ruby versions.
-        old_value = RSpec::Expectations.configuration.on_potential_false_positives
-        RSpec::Expectations.configuration.on_potential_false_positives = :nothing
-        begin
-          expect { resource.run_action(:create) }.to raise_error
-        ensure
-          RSpec::Expectations.configuration.on_potential_false_positives = old_value
-        end
+        expect { resource.run_action(:create) }.to raise_error(SystemCallError)
 
         expect(File).not_to exist(path)
       end

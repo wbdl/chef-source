@@ -1,4 +1,3 @@
-# encoding: UTF-8
 #
 # Author:: Dheeraj Dubey (<dheeraj.dubey@msystechnologies.com>)
 # Copyright:: Copyright (c) Chef Software Inc.
@@ -18,7 +17,6 @@
 #
 
 require "spec_helper"
-require "functional/resource/base"
 require "chef/mixin/shell_out"
 require "fileutils"
 
@@ -40,11 +38,11 @@ describe Chef::Resource::Service, :requires_root, :opensuse do
   # Platform specific validation routines.
   def service_should_be_started(file_name)
     # The existence of this file indicates that the service was started.
-    expect(File.exists?("#{Dir.tmpdir}/#{file_name}")).to be_truthy
+    expect(File.exist?("#{Dir.tmpdir}/#{file_name}")).to be_truthy
   end
 
   def service_should_be_stopped(file_name)
-    expect(File.exists?("#{Dir.tmpdir}/#{file_name}")).to be_falsey
+    expect(File.exist?("#{Dir.tmpdir}/#{file_name}")).to be_falsey
   end
 
   def delete_test_files
@@ -54,6 +52,8 @@ describe Chef::Resource::Service, :requires_root, :opensuse do
 
   # Actual tests
   let(:new_resource) do
+    run_context = Chef::RunContext.new(Chef::Node.new, {}, Chef::EventDispatch::Dispatcher.new)
+
     new_resource = Chef::Resource::Service.new("inittest", run_context)
     new_resource.provider Chef::Provider::Service::Insserv
     new_resource.supports({ status: true, restart: true, reload: true })
@@ -65,7 +65,7 @@ describe Chef::Resource::Service, :requires_root, :opensuse do
     provider
   end
 
-  let (:service_name) { "Chef::Util::PathHelper.escape_glob_dir(current_resource.service_name)" }
+  let(:service_name) { "Chef::Util::PathHelper.escape_glob_dir(current_resource.service_name)" }
 
   let(:current_resource) do
     provider.load_current_resource
@@ -73,13 +73,13 @@ describe Chef::Resource::Service, :requires_root, :opensuse do
   end
 
   before(:all) do
-    File.delete("/etc/init.d/inittest") if File.exists?("/etc/init.d/inittest")
-    FileUtils.cp((File.join(File.dirname(__FILE__), "/../assets/inittest")).to_s, "/etc/init.d/inittest")
+    File.delete("/etc/init.d/inittest") if File.exist?("/etc/init.d/inittest")
+    FileUtils.cp((File.join(__dir__, "/../assets/inittest")).to_s, "/etc/init.d/inittest")
     FileUtils.chmod(0755, "/etc/init.d/inittest")
   end
 
   after(:all) do
-    File.delete("/etc/init.d/inittest") if File.exists?("/etc/init.d/inittest")
+    File.delete("/etc/init.d/inittest") if File.exist?("/etc/init.d/inittest")
   end
 
   before(:each) do

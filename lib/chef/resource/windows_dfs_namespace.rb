@@ -21,9 +21,11 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsDfsNamespace < Chef::Resource
+      unified_mode true
+
       provides :windows_dfs_namespace
 
-      description "Creates a share and DFS namespace on the local server."
+      description "Use the **windows_dfs_namespace** resource to creates a share and DFS namespace on a Windows server."
       introduced "15.0"
 
       property :namespace_name, String,
@@ -50,9 +52,7 @@ class Chef
         description: "The root from which to create the DFS tree. Defaults to C:\\DFSRoots.",
         default: 'C:\\DFSRoots'
 
-      action :create do
-        description "Creates the dfs namespace on the server."
-
+      action :create, description: "Creates the dfs namespace on the server" do
         directory file_path do
           action :create
           recursive true
@@ -82,9 +82,7 @@ class Chef
         end
       end
 
-      action :delete do
-        description "Deletes a DFS Namespace including the directory on disk."
-
+      action :delete, description: "Deletes a DFS Namespace including the directory on disk" do
         powershell_script "Delete DFS Namespace" do
           code <<-EOH
             Remove-DfsnRoot -Path '\\\\#{ENV["COMPUTERNAME"]}\\#{new_resource.namespace_name}' -Force

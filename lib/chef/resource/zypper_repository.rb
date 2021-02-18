@@ -26,17 +26,29 @@ class Chef
       provides(:zypper_repository) { true }
       provides(:zypper_repo) { true }
 
-      description "Use the zypper_repository resource to create Zypper package repositories on SUSE Enterprise Linux and openSUSE systems. This resource maintains full compatibility with the zypper_repository resource in the existing zypper cookbook."
+      description "Use the **zypper_repository** resource to create Zypper package repositories on SUSE Enterprise Linux and openSUSE systems. This resource maintains full compatibility with the **zypper_repository** resource in the existing **zypper** cookbook."
       introduced "13.3"
+      examples <<~DOC
+        **Add the Apache repo on openSUSE Leap 15**:
+
+        ``` ruby
+        zypper_repository 'apache' do
+          baseurl 'http://download.opensuse.org/repositories/Apache'
+          path '/openSUSE_Leap_15.0'
+            type 'rpm-md'
+          priority '100'
+        end
+        ```
+      DOC
 
       property :repo_name, String,
         regex: [%r{^[^/]+$}],
         description: "An optional property to set the repository name if it differs from the resource block's name.",
-        validation_message: "repo_name property cannot contain a forward slash '/'",
+        validation_message: "repo_name property cannot contain a forward slash `/`",
         name_property: true
 
       property :description, String,
-        description: "The description of the repository that will be shown by the 'zypper repos' command."
+        description: "The description of the repository that will be shown by the `zypper repos` command."
 
       property :type, String,
         description: "Specifies the repository type.",
@@ -58,7 +70,7 @@ class Chef
         description: "The location of the repository key to be imported."
 
       property :baseurl, String,
-        description: "The base URL for the Zypper repository, such as 'http://download.opensuse.org'."
+        description: "The base URL for the Zypper repository, such as `http://download.opensuse.org`."
 
       property :mirrorlist, String,
         description: "The URL of the mirror list that will be used."
@@ -67,7 +79,7 @@ class Chef
         description: "The relative path from the repository's base URL."
 
       property :priority, Integer,
-        description: "Determines the priority of the Zypper repository. ",
+        description: "Determines the priority of the Zypper repository.",
         default: 99
 
       property :keeppackages, [TrueClass, FalseClass],

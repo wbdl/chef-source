@@ -75,23 +75,21 @@ class Chef
           #
 
           def self.parse(lcm_output, test_dsc_configuration)
+            lcm_output = String(lcm_output).split("\n")
             test_dsc_configuration ? test_dsc_parser(lcm_output) : what_if_parser(lcm_output)
           end
 
           def self.test_dsc_parser(lcm_output)
-            lcm_output ||= ""
             current_resource = {}
 
             resources = []
-            lcm_output.lines.each do |line|
+            lcm_output.each do |line|
               op_action , op_value = line.strip.split(":")
               op_action&.strip!
               case op_action
               when "InDesiredState"
                 current_resource[:skipped] = op_value.strip == "True" ? true : false
-              when "ResourcesInDesiredState"
-                current_resource[:name] = op_value.strip if op_value
-              when "ResourcesNotInDesiredState"
+              when "ResourcesInDesiredState", "ResourcesNotInDesiredState"
                 current_resource[:name] = op_value.strip if op_value
               when "ReturnValue"
                 current_resource[:context] = nil
@@ -109,11 +107,10 @@ class Chef
           end
 
           def self.what_if_parser(lcm_output)
-            lcm_output ||= ""
             current_resource = {}
 
             resources = []
-            lcm_output.lines.each do |line|
+            lcm_output.each do |line|
               op_action, op_type, info = parse_line(line)
 
               case op_action
@@ -160,9 +157,9 @@ class Chef
 
           def self.parse_line(line)
             if match = line.match(/^.*?:.*?:\s*LCM:\s*\[(.*?)\](.*)/)
-                # If the line looks like
-                # What If: [machinename]: LCM: [op_action op_type] message
-                # extract op_action, op_type, and message
+              # If the line looks like
+              # What If: [machinename]: LCM: [op_action op_type] message
+              # extract op_action, op_type, and message
               operation, info = match.captures
               op_action, op_type = operation.strip.split(" ").map { |m| m.downcase.to_sym }
             else

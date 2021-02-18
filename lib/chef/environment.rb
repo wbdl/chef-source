@@ -25,7 +25,7 @@ require_relative "mixin/params_validate"
 require_relative "mixin/from_file"
 require_relative "version_constraint"
 require_relative "server_api"
-require_relative "dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Environment
@@ -35,7 +35,7 @@ class Chef
     include Chef::Mixin::ParamsValidate
     include Chef::Mixin::FromFile
 
-    COMBINED_COOKBOOK_CONSTRAINT = /(.+)(?:[\s]+)((?:#{Chef::VersionConstraint::OPS.join('|')})(?:[\s]+).+)$/.freeze
+    COMBINED_COOKBOOK_CONSTRAINT = /(.+)(?:\s+)((?:#{Chef::VersionConstraint::OPS.join('|')})(?:\s+).+)$/.freeze
 
     def initialize(chef_server_rest: nil)
       @name = ""
@@ -119,7 +119,7 @@ class Chef
     end
 
     def to_h
-      result = {
+      {
         "name" => @name,
         "description" => @description,
         "cookbook_versions" => @cookbook_versions,
@@ -128,7 +128,6 @@ class Chef
         "default_attributes" => @default_attributes,
         "override_attributes" => @override_attributes,
       }
-      result
     end
 
     alias_method :to_hash, :to_h
@@ -255,11 +254,11 @@ class Chef
       js_file = File.join(Chef::Config[:environment_path], "#{name}.json")
       rb_file = File.join(Chef::Config[:environment_path], "#{name}.rb")
 
-      if File.exists?(js_file)
+      if File.exist?(js_file)
         # from_json returns object.class => json_class in the JSON.
         hash = Chef::JSONCompat.parse(IO.read(js_file))
         from_hash(hash)
-      elsif File.exists?(rb_file)
+      elsif File.exist?(rb_file)
         environment = Chef::Environment.new
         environment.name(name)
         environment.from_file(rb_file)
@@ -309,7 +308,7 @@ class Chef
     def self.validate_cookbook_version(version)
       if Chef::Config[:solo_legacy_mode]
         raise Chef::Exceptions::IllegalVersionConstraint,
-          "Environment cookbook version constraints not allowed in #{Chef::Dist::SOLO}"
+          "Environment cookbook version constraints not allowed in #{ChefUtils::Dist::Solo::PRODUCT}"
       else
         Chef::VersionConstraint.new version
         true

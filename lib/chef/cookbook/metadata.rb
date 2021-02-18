@@ -357,7 +357,7 @@ class Chef
       # Array<String> - array of files or globs to eagerly load, otherwise it is treated like `false`
       #
       # @params arg [Array,String,TrueClass,FalseClass]
-      # @params [Array,TrueClass,FalseCalss]
+      # @params [Array,TrueClass,FalseClass]
       def eager_load_libraries(arg = nil)
         set_or_return(
           :eager_load_libraries,
@@ -391,7 +391,7 @@ class Chef
       def recipes_from_cookbook_version(cookbook)
         cookbook.fully_qualified_recipe_names.map do |recipe_name|
           unqualified_name =
-            if recipe_name =~ /::default$/
+            if /::default$/.match?(recipe_name)
               name.to_s
             else
               recipe_name

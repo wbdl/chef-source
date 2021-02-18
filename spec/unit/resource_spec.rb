@@ -378,7 +378,7 @@ describe Chef::Resource do
       it "does not propagate validation errors" do
         resource_class = Class.new(Chef::Resource) { property :foo, String, required: true }
         resource = resource_class.new("required_property_tests")
-        expect { resource.to_text }.to_not raise_error Chef::Exceptions::ValidationFailed
+        expect { resource.to_text }.to_not raise_error
       end
     end
   end
@@ -491,6 +491,20 @@ describe Chef::Resource do
       expect(c.resource_name).to eq :blah
       expect(r.resource_name).to eq :blah
       expect(r.declared_type).to eq :d
+    end
+
+    # This tests some somewhat confusing behavior that used to occur due to the resource_name call
+    # automatically wiring up the old canonical provides line.
+    it "setting resoure_name does not override provides in prior resource" do
+      c1 = Class.new(Chef::Resource) do
+        resource_name :self_resource_name_test_4
+        provides :self_resource_name_test_4
+      end
+      c2 = Class.new(Chef::Resource) do
+        resource_name :self_resource_name_test_4
+        provides(:self_resource_name_test_4) { false } # simulates any filter that does not match
+      end
+      expect(Chef::Resource.resource_for_node(:self_resource_name_test_4, node)).to eql(c1)
     end
   end
 
@@ -1148,6 +1162,52 @@ describe Chef::Resource do
     end
   end
 
+  describe "#action_description" do
+    class TestResource < ::Chef::Resource
+      action :symbol_action, description: "a symbol test" do; end
+      action "string_action", description: "a string test" do; end
+      action :base_action0 do; end
+      action :base_action1, description: "unmodified base action 1 desc" do; end
+      action :base_action2, description: "unmodified base action 2 desc" do; end
+      action :base_action3, description: "unmodified base action 3 desc" do; end
+    end
+
+    it "returns nil when no description was provided for the action" do
+      expect(TestResource.action_description(:base_action0)).to eql(nil)
+    end
+
+    context "when action definition is a string" do
+      it "returns the description whether a symbol or string is used to look it up" do
+        expect(TestResource.action_description("string_action")).to eql("a string test")
+        expect(TestResource.action_description(:string_action)).to eql("a string test")
+      end
+    end
+
+    context "when action definition is a symbol" do
+      it "returns the description whether a symbol or string is used to look up" do
+        expect(TestResource.action_description("symbol_action")).to eql("a symbol test")
+        expect(TestResource.action_description(:symbol_action)).to eql("a symbol test")
+      end
+    end
+
+    context "when inheriting from an existing resource" do
+      class TestResourceChild < TestResource
+        action :base_action2, description: "modified base action 2 desc" do; end
+        action :base_action3 do; end
+      end
+
+      it "returns original description when a described action is not overridden in child resource" do
+        expect(TestResourceChild.action_description(:base_action1)).to eq "unmodified base action 1 desc"
+      end
+      it "returns original description when the child resource overrides an inherited action but NOT its description" do
+        expect(TestResourceChild.action_description(:base_action3)).to eq "unmodified base action 3 desc"
+      end
+      it "returns new description when the child resource overrides an inherited action and its description" do
+        expect(TestResourceChild.action_description(:base_action2)).to eq "modified base action 2 desc"
+      end
+    end
+  end
+
   describe ".default_action" do
     let(:default_action) {}
     let(:resource_class) do
@@ -1220,6 +1280,75 @@ describe Chef::Resource do
 
     it "should return false from tagged? if node is not tagged" do
       expect(resource.tagged?("foo")).to be(false)
+    end
+  end
+
+  describe "#with_umask" do
+    let(:resource) { Chef::Resource.new("testy testerson") }
+    let!(:original_umask) { ::File.umask }
+
+    after do
+      ::File.umask(original_umask)
+    end
+
+    it "does not affect the umask by default" do
+      block_value = nil
+
+      resource.with_umask do
+        block_value = ::File.umask
+      end
+
+      expect(block_value).to eq(original_umask)
+    end
+
+    if windows?
+      it "is a no-op on Windows" do
+        resource.umask = "0123"
+
+        block_value = nil
+
+        resource.with_umask do
+          block_value = ::File.umask
+        end
+
+        # Format the returned value so a potential error message is easier to understand.
+        actual_value = block_value.to_s(8).rjust(4, "0")
+
+        expect(actual_value).to eq("0000")
+      end
+    else
+      it "changes the umask in the block to the set value" do
+        resource.umask = "0123"
+
+        block_value = nil
+
+        resource.with_umask do
+          block_value = ::File.umask
+        end
+
+        # Format the returned value so a potential error message is easier to understand.
+        actual_value = block_value.to_s(8).rjust(4, "0")
+
+        expect(actual_value).to eq("0123")
+      end
+    end
+
+    it "resets the umask afterwards" do
+      resource.umask = "0123"
+
+      resource.with_umask do
+        "noop"
+      end
+
+      expect(::File.umask).to eq(original_umask)
+    end
+
+    it "resets the umask if the block raises an error" do
+      resource.umask = "0123"
+
+      expect { resource.with_umask { 1 / 0 } }.to raise_error(ZeroDivisionError)
+
+      expect(::File.umask).to eq(original_umask)
     end
   end
 end

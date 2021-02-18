@@ -18,7 +18,7 @@
 #
 
 require "etc" unless defined?(Etc)
-require "rexml/document" unless defined?(REXML::Document)
+autoload :REXML, "rexml/document"
 require_relative "../../resource/service"
 require_relative "../../resource/macosx_service"
 require_relative "simple"
@@ -47,7 +47,7 @@ class Chef
           @current_resource = Chef::Resource::MacosxService.new(@new_resource.name)
           @current_resource.service_name(@new_resource.service_name)
           @plist_size = 0
-          @plist = @new_resource.plist ? @new_resource.plist : find_service_plist
+          @plist = @new_resource.plist || find_service_plist
           @service_label = find_service_label
           # LaunchAgents should be loaded as the console user.
           @console_user = @plist ? @plist.include?("LaunchAgents") : false
@@ -56,8 +56,10 @@ class Chef
           if @console_user
             @console_user = Etc.getpwuid(::File.stat("/dev/console").uid).name
             logger.trace("#{new_resource} console_user: '#{@console_user}'")
-            cmd = "su -l"
-            @base_user_cmd = cmd + "#{@console_user} -c"
+
+            @base_user_cmd = "su -l #{@console_user} -c"
+            logger.trace("#{new_resource} base_user_cmd: '#{@base_user_cmd}'")
+
             # Default LaunchAgent session should be Aqua
             @session_type = "Aqua" if @session_type.nil?
           end
@@ -79,7 +81,7 @@ class Chef
           end
 
           requirements.assert(:all_actions) do |a|
-            a.assertion { ::File.exists?(@plist.to_s) }
+            a.assertion { ::File.exist?(@plist.to_s) }
             a.failure_message Chef::Exceptions::Service,
               "Could not find plist for #{@new_resource}"
           end
@@ -140,6 +142,15 @@ class Chef
         #
         # This makes some sense on macOS since launchctl is an "init"-style
         # supervisor that will restart daemons that are crashing, etc.
+        #
+        # FIXME: Does this make any sense at all?  The difference between enabled and
+        # running as state would seem to only be useful for completely broken
+        # services (enabled, not restarting, but not running => totally broken?).
+        #
+        # It seems like otherwise :enable is equivalent to :start, and :disable is
+        # equivalent to :stop?  But just with strangely different behavior in the
+        # face of a broken service?
+        #
         def enable_service
           if @current_resource.enabled
             logger.trace("#{@new_resource} already enabled, not enabling")
@@ -210,7 +221,7 @@ class Chef
           return nil if @plist.nil?
 
           # Plist must exist by this point
-          raise Chef::Exceptions::FileNotFound, "Cannot find #{@plist}!" unless ::File.exists?(@plist)
+          raise Chef::Exceptions::FileNotFound, "Cannot find #{@plist}!" unless ::File.exist?(@plist)
 
           # Most services have the same internal label as the name of the
           # plist file. However, there is no rule saying that *has* to be

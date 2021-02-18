@@ -19,7 +19,9 @@
 require_relative "../resource"
 require_relative "../http/simple"
 require "tmpdir" unless defined?(Dir.mktmpdir)
-require "addressable" unless defined?(Addressable)
+module Addressable
+  autoload :URI, "addressable/uri"
+end
 
 class Chef
   class Resource
@@ -28,11 +30,12 @@ class Chef
 
       provides(:apt_repository) { true }
 
-      description "Use the apt_repository resource to specify additional APT repositories. Adding a new repository will update the APT package cache immediately."
+      description "Use the **apt_repository** resource to specify additional APT repositories. Adding a new repository will update the APT package cache immediately."
       introduced "12.9"
 
       examples <<~DOC
-        Add repository with basic settings
+        **Add repository with basic settings**:
+
          ```ruby
         apt_repository 'nginx' do
           uri        'http://nginx.org/packages/ubuntu/'
@@ -40,37 +43,40 @@ class Chef
         end
         ```
 
-        Enable Ubuntu multiverse repositories
+        **Enable Ubuntu multiverse repositories**:
+
         ```ruby
         apt_repository 'security-ubuntu-multiverse' do
           uri          'http://security.ubuntu.com/ubuntu'
-          distribution 'trusty-security'
+          distribution 'xenial-security'
           components   ['multiverse']
           deb_src      true
         end
         ```
 
-        Add the Nginx PPA, autodetect the key and repository url
+        **Add the Nginx PPA, autodetect the key and repository url**:
+
         ```ruby
         apt_repository 'nginx-php' do
           uri          'ppa:nginx/stable'
         end
         ```
 
-        Add the JuJu PPA, grab the key from the keyserver, and add source repo
+        **Add the JuJu PPA, grab the key from the Ubuntu keyserver, and add source repo**:
+
         ```ruby
         apt_repository 'juju' do
-          uri 'http://ppa.launchpad.net/juju/stable/ubuntu'
+          uri 'ppa:juju/stable'
           components ['main']
-          distribution 'trusty'
+          distribution 'xenial'
           key 'C8068B11'
-          keyserver 'keyserver.ubuntu.com'
           action :add
           deb_src true
         end
         ```
 
-        Add repository that requires multiple keys to authenticate packages
+        **Add repository that requires multiple keys to authenticate packages**:
+
         ```ruby
         apt_repository 'rundeck' do
           uri 'https://dl.bintray.com/rundeck/rundeck-deb'
@@ -81,18 +87,20 @@ class Chef
         end
         ```
 
-        Add the Cloudera Repo of CDH4 packages for Ubuntu 12.04 on AMD64
+        **Add the Cloudera Repo of CDH4 packages for Ubuntu 16.04 on AMD64**:
+
         ```ruby
         apt_repository 'cloudera' do
-          uri          'http://archive.cloudera.com/cdh4/ubuntu/precise/amd64/cdh'
+          uri          'http://archive.cloudera.com/cdh4/ubuntu/xenial/amd64/cdh'
           arch         'amd64'
-          distribution 'precise-cdh4'
+          distribution 'xenial-cdh4'
           components   ['contrib']
           key          'http://archive.cloudera.com/debian/archive.key'
         end
         ```
 
-        Remove a repository from the list
+        **Remove a repository from the list**:
+
         ```ruby
         apt_repository 'zenoss' do
           action :remove
@@ -115,15 +123,15 @@ class Chef
         description: "The base of the Debian distribution."
 
       property :distribution, [ String, nil, FalseClass ],
-        description: "Usually a distribution's codename, such as xenial, bionic, or focal.",
+        description: "Usually a distribution's codename, such as `xenial`, `bionic`, or `focal`.",
         default: lazy { node["lsb"]["codename"] }, default_description: "The LSB codename of the node such as 'focal'."
 
       property :components, Array,
         description: "Package groupings, such as 'main' and 'stable'.",
-        default: lazy { [] }, default_description: "'main' if using a PPA repository."
+        default: lazy { [] }, default_description: "`main` if using a PPA repository."
 
       property :arch, [String, nil, FalseClass],
-        description: "Constrain packages to a particular CPU architecture such as 'i386' or 'amd64'."
+        description: "Constrain packages to a particular CPU architecture such as `i386` or `amd64`."
 
       property :trusted, [TrueClass, FalseClass],
         description: "Determines whether you should treat all packages from this repository as authenticated regardless of signature.",
@@ -161,7 +169,7 @@ class Chef
         # is the provided ID a key ID from a keyserver. Looks at length and HEX only values
         # @param [String] id the key value passed by the user that *may* be an ID
         def is_key_id?(id)
-          id = id[2..-1] if id.start_with?("0x")
+          id = id[2..] if id.start_with?("0x")
           id =~ /^\h+$/ && [8, 16, 40].include?(id.length)
         end
 
@@ -185,16 +193,7 @@ class Chef
         #
         # @return [Boolean] is the key valid or not
         def key_is_valid?(key)
-          valid = true
-
-          so = shell_out("apt-key", "list")
-          so.stdout.split(/\n/).map do |t|
-            if t =~ %r{^\/#{key}.*\[expired: .*\]$}
-              logger.debug "Found expired key: #{t}"
-              valid = false
-              break
-            end
-          end
+          valid = shell_out("apt-key", "list").stdout.each_line.none?(%r{^\/#{key}.*\[expired: .*\]$})
 
           logger.debug "key #{key} #{valid ? "is valid" : "is not valid"}"
           valid
@@ -410,7 +409,7 @@ class Chef
         end
       end
 
-      action :add do
+      action :add, description: "Creates a repository file at `/etc/apt/sources.list.d/` and builds the repository listing" do
         return unless debian?
 
         execute "apt-cache gencaches" do
@@ -460,7 +459,7 @@ class Chef
         end
       end
 
-      action :remove do
+      action :remove, description: "Removes the repository listing" do
         return unless debian?
 
         cleanup_legacy_file!

@@ -20,16 +20,37 @@
 #
 
 require_relative "../resource"
-require_relative "../json_compat"
 require_relative "../util/path_helper"
 
 class Chef
   class Resource
     class WindowsShare < Chef::Resource
+      unified_mode true
+
       provides :windows_share
 
-      description "Use the windows_share resource to create, modify and remove Windows shares."
+      description "Use the **windows_share** resource to create, modify and remove Windows shares."
       introduced "14.7"
+      examples <<~DOC
+      **Create a share**:
+
+      ```ruby
+      windows_share 'foo' do
+        action :create
+        path 'C:\\foo'
+        full_users ['DOMAIN_A\\some_user', 'DOMAIN_B\\some_other_user']
+        read_users ['DOMAIN_C\\Domain users']
+      end
+      ```
+
+      **Delete a share**:
+
+      ```ruby
+      windows_share 'foo' do
+        action :delete
+      end
+      ```
+      DOC
 
       # Specifies a name for the SMB share. The name may be composed of any valid file name characters, but must be less than 80 characters long. The names pipe and mailslot are reserved for use by the computer.
       property :share_name, String,
@@ -39,7 +60,7 @@ class Chef
       # Specifies the path of the location of the folder to share. The path must be fully qualified. Relative paths or paths that contain wildcard characters are not permitted.
       property :path, String,
         description: "The path of the folder to share. Required when creating. If the share already exists on a different path then it is deleted and re-created.",
-        coerce: proc { |p| p.gsub(%r{/}, "\\") || p }
+        coerce: proc { |p| p.tr("/", "\\") || p }
 
       # Specifies an optional description of the SMB share. A description of the share is displayed by running the Get-SmbShare cmdlet. The description may not contain more than 256 characters.
       property :description, String,
@@ -97,25 +118,23 @@ class Chef
       # Specifies which files and folders in the SMB share are visible to users. AccessBased: SMB does not the display the files and folders for a share to a user unless that user has rights to access the files and folders. By default, access-based enumeration is disabled for new SMB shares. Unrestricted: SMB displays files and folders to a user even when the user does not have permission to access the items.
       # property :folder_enumeration_mode, String, equal_to: %(AccessBased Unrestricted)
 
-      include Chef::Mixin::PowershellOut
-
       load_current_value do |desired|
         # this command selects individual objects because EncryptData & CachingMode have underlying
         # types that get converted to their Integer values by ConvertTo-Json & we need to make sure
         # those get written out as strings
-        share_state_cmd = "Get-SmbShare -Name '#{desired.share_name}' | Select-Object Name,Path, Description, Temporary, CATimeout, ContinuouslyAvailable, ConcurrentUserLimit, EncryptData | ConvertTo-Json -Compress"
+        share_state_cmd = "Get-SmbShare -Name '#{desired.share_name}' | Select-Object Name,Path, Description, Temporary, CATimeout, ContinuouslyAvailable, ConcurrentUserLimit, EncryptData"
 
         Chef::Log.debug("Running '#{share_state_cmd}' to determine share state'")
-        ps_results = powershell_out(share_state_cmd)
+        ps_results = powershell_exec(share_state_cmd)
 
         # detect a failure without raising and then set current_resource to nil
         if ps_results.error?
-          Chef::Log.debug("Error fetching share state: #{ps_results.stderr}")
+          Chef::Log.debug("Error fetching share state: #{ps_results.errors}")
           current_value_does_not_exist!
         end
 
-        Chef::Log.debug("The Get-SmbShare results were #{ps_results.stdout}")
-        results = Chef::JSONCompat.from_json(ps_results.stdout)
+        Chef::Log.debug("The Get-SmbShare results were #{ps_results.result}")
+        results = ps_results.result
 
         path results["Path"]
         description results["Description"]
@@ -127,18 +146,18 @@ class Chef
         encrypt_data results["EncryptData"]
         # folder_enumeration_mode results['FolderEnumerationMode']
 
-        perm_state_cmd = %{Get-SmbShareAccess -Name "#{desired.share_name}" | Select-Object AccountName,AccessControlType,AccessRight | ConvertTo-Json -Compress}
+        perm_state_cmd = %{Get-SmbShareAccess -Name "#{desired.share_name}" | Select-Object AccountName,AccessControlType,AccessRight}
 
         Chef::Log.debug("Running '#{perm_state_cmd}' to determine share permissions state'")
-        ps_perm_results = powershell_out(perm_state_cmd)
+        ps_perm_results = powershell_exec(perm_state_cmd)
 
         # we raise here instead of warning like above because we'd only get here if the above Get-SmbShare
         # command was successful and that continuing would leave us with 1/2 known state
         raise "Could not determine #{desired.share_name} share permissions by running '#{perm_state_cmd}'" if ps_perm_results.error?
 
-        Chef::Log.debug("The Get-SmbShareAccess results were #{ps_perm_results.stdout}")
+        Chef::Log.debug("The Get-SmbShareAccess results were #{ps_perm_results.result}")
 
-        f_users, c_users, r_users = parse_permissions(ps_perm_results.stdout)
+        f_users, c_users, r_users = parse_permissions(ps_perm_results.result)
 
         full_users f_users
         change_users c_users
@@ -147,8 +166,7 @@ class Chef
 
       # given the string output of Get-SmbShareAccess parse out
       # arrays of full access users, change users, and read only users
-      def parse_permissions(results_string)
-        json_results = Chef::JSONCompat.from_json(results_string)
+      def parse_permissions(json_results)
         json_results = [json_results] unless json_results.is_a?(Array) # single result is not an array
 
         f_users = []
@@ -167,16 +185,14 @@ class Chef
         [f_users, c_users, r_users]
       end
 
-# local names are returned from Get-SmbShareAccess in the full format MACHINE\\NAME
-# but users of this resource would simply say NAME so we need to strip the values for comparison
+      # local names are returned from Get-SmbShareAccess in the full format MACHINE\\NAME
+      # but users of this resource would simply say NAME so we need to strip the values for comparison
       def stripped_account(name)
         name.slice!("#{node["hostname"]}\\")
         name
       end
 
-      action :create do
-        description "Create and modify Windows shares."
-
+      action :create, description: "Create or modify a Windows share" do
         # we do this here instead of requiring the property because :delete doesn't need path set
         raise "No path property set" unless new_resource.path
 
@@ -200,9 +216,7 @@ class Chef
         end
       end
 
-      action :delete do
-        description "Delete an existing Windows share."
-
+      action :delete, description: "Delete an existing Windows share" do
         if current_resource.nil?
           Chef::Log.debug("#{new_resource.share_name} does not exist - nothing to do")
         else
@@ -213,6 +227,8 @@ class Chef
       end
 
       action_class do
+        private
+
         def different_path?
           return false if current_resource.nil? # going from nil to something isn't different for our concerns
           return false if current_resource.path == Chef::Util::PathHelper.cleanpath(new_resource.path)
@@ -224,14 +240,16 @@ class Chef
           delete_command = "Remove-SmbShare -Name '#{new_resource.share_name}' -Force"
 
           Chef::Log.debug("Running '#{delete_command}' to remove the share")
-          powershell_out!(delete_command)
+          powershell_exec!(delete_command)
         end
 
         def update_share
-          update_command = "Set-SmbShare -Name '#{new_resource.share_name}' -Description '#{new_resource.description}' -Force"
+          update_command = "Set-SmbShare -Name '#{new_resource.share_name}' -Description '#{new_resource.description}'  -ConcurrentUserLimit #{new_resource.concurrent_user_limit} -CATimeout #{new_resource.ca_timeout} -EncryptData:#{bool_string(new_resource.encrypt_data)} -ContinuouslyAvailable:#{bool_string(new_resource.continuously_available)} -Force"
+          update_command << " -ScopeName #{new_resource.scope_name}" unless new_resource.scope_name == "*" # passing * causes the command to fail
+          update_command << " -Temporary:#{bool_string(new_resource.temporary)}" if new_resource.temporary # only set true
 
           Chef::Log.debug("Running '#{update_command}' to update the share")
-          powershell_out!(update_command)
+          powershell_exec!(update_command)
         end
 
         def create_share
@@ -242,7 +260,7 @@ class Chef
           share_cmd << " -Temporary:#{bool_string(new_resource.temporary)}" if new_resource.temporary # only set true
 
           Chef::Log.debug("Running '#{share_cmd}' to create the share")
-          powershell_out!(share_cmd)
+          powershell_exec!(share_cmd)
 
           # New-SmbShare adds the "Everyone" user with read access no matter what so we need to remove it
           # before we add our permissions
@@ -277,7 +295,7 @@ class Chef
             grant_command = "Grant-SmbShareAccess -Name '#{new_resource.share_name}' -AccountName \"#{new_resource.send("#{perm_type}_users").join('","')}\" -Force -AccessRight #{perm_type}"
 
             Chef::Log.debug("Running '#{grant_command}' to update the share permissions")
-            powershell_out!(grant_command)
+            powershell_exec!(grant_command)
           end
         end
 
@@ -308,7 +326,7 @@ class Chef
         def revoke_user_permissions(users)
           revoke_command = "Revoke-SmbShareAccess -Name '#{new_resource.share_name}' -AccountName \"#{users.join('","')}\" -Force"
           Chef::Log.debug("Running '#{revoke_command}' to revoke share permissions")
-          powershell_out!(revoke_command)
+          powershell_exec!(revoke_command)
         end
 
         # convert True/False into "$True" & "$False"

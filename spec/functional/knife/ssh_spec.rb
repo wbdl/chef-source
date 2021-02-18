@@ -36,17 +36,6 @@ describe Chef::Knife::Ssh do
     allow(Net::SSH).to receive(:configuration_for).and_return(ssh_config)
   end
 
-  # Force log level to info.
-  around do |ex|
-    old_level = Chef::Log.level
-    begin
-      Chef::Log.level = :info
-      ex.run
-    ensure
-      Chef::Log.level = old_level
-    end
-  end
-
   describe "identity file" do
     context "when knife[:ssh_identity_file] is set" do
       before do
@@ -278,7 +267,7 @@ describe Chef::Knife::Ssh do
       end
 
       it "uses the ssh_gateway" do
-        expect(@knife.session).to receive(:via).with("ec2.public_hostname", "user", {})
+        expect(@knife.session).to receive(:via).with("ec2.public_hostname", "user", { append_all_supported_algorithms: true })
         @knife.run
         expect(@knife.config[:ssh_gateway]).to eq("user@ec2.public_hostname")
       end
@@ -291,7 +280,7 @@ describe Chef::Knife::Ssh do
       end
 
       it "uses the ssh_gateway" do
-        expect(@knife.session).to receive(:via).with("ec2.public_hostname", "user", {})
+        expect(@knife.session).to receive(:via).with("ec2.public_hostname", "user", { append_all_supported_algorithms: true })
         @knife.run
         expect(@knife.config[:ssh_gateway]).to eq("user@ec2.public_hostname")
       end
@@ -305,7 +294,7 @@ describe Chef::Knife::Ssh do
       end
 
       it "uses the ssh_gateway_identity file" do
-        expect(@knife.session).to receive(:via).with("ec2.public_hostname", "user", { keys: File.expand_path("#{ENV["HOME"]}/.ssh/aws-gateway.rsa").squeeze("/"), keys_only: true })
+        expect(@knife.session).to receive(:via).with("ec2.public_hostname", "user", { append_all_supported_algorithms: true, keys: File.expand_path("#{ENV["HOME"]}/.ssh/aws-gateway.rsa").squeeze("/"), keys_only: true })
         @knife.run
         expect(@knife.config[:ssh_gateway_identity]).to eq("~/.ssh/aws-gateway.rsa")
       end
@@ -319,7 +308,7 @@ describe Chef::Knife::Ssh do
       end
 
       it "uses the ssh_gateway_identity file" do
-        expect(@knife.session).to receive(:via).with("ec2.public_hostname", "user", { keys: File.expand_path("#{ENV["HOME"]}/.ssh/aws-gateway.rsa").squeeze("/"), keys_only: true })
+        expect(@knife.session).to receive(:via).with("ec2.public_hostname", "user", { append_all_supported_algorithms: true, keys: File.expand_path("#{ENV["HOME"]}/.ssh/aws-gateway.rsa").squeeze("/"), keys_only: true })
         @knife.run
         expect(@knife.config[:ssh_gateway_identity]).to eq("~/.ssh/aws-gateway.rsa")
       end
@@ -335,7 +324,7 @@ describe Chef::Knife::Ssh do
       end
 
       it "should prompt the user for a password" do
-        expect(@knife.ui).to receive(:ask).with("Enter the password for user@ec2.public_hostname: ").and_return("password")
+        expect(@knife.ui).to receive(:ask).with("Enter the password for user@ec2.public_hostname: ", echo: false).and_return("password")
         @knife.run
       end
     end

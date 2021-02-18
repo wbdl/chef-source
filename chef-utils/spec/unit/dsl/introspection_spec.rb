@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
@@ -21,6 +22,7 @@ RSpec.describe ChefUtils::DSL::Introspection do
   class IntrospectionTestClass
     include ChefUtils::DSL::Introspection
     attr_accessor :node
+
     def initialize(node)
       @node = node
     end
@@ -31,7 +33,7 @@ RSpec.describe ChefUtils::DSL::Introspection do
   let(:test_instance) { IntrospectionTestClass.new(node) }
 
   context "#docker?" do
-    # FIXME: use a real VividMash for these tests insted of stubbing
+    # FIXME: use a real VividMash for these tests instead of stubbing
     it "is false by default" do
       expect(node).to receive(:read).with("virtualization", "systems", "docker").and_return(nil)
       expect(ChefUtils.docker?(node)).to be false

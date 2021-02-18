@@ -17,7 +17,7 @@
 #
 
 require_relative "../resource"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Resource
@@ -26,7 +26,7 @@ class Chef
 
       provides :reboot
 
-      description "Use the reboot resource to reboot a node, a necessary step with some"\
+      description "Use the **reboot** resource to reboot a node, a necessary step with some"\
                   " installations on certain platforms. This resource is supported for use on"\
                   " the Microsoft Windows, macOS, and Linux platforms.\n"\
                   "In using this resource via notifications, it's important to *only* use"\
@@ -36,7 +36,7 @@ class Chef
 
       property :reason, String,
         description: "A string that describes the reboot action.",
-        default: "Reboot by #{Chef::Dist::PRODUCT}"
+        default: "Reboot by #{ChefUtils::Dist::Infra::PRODUCT}"
 
       property :delay_mins, Integer,
         description: "The amount of time (in minutes) to delay a reboot request.",

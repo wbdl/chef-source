@@ -2,7 +2,7 @@
 [![Code Climate](https://codeclimate.com/github/chef/chef.svg)](https://codeclimate.com/github/chef/chef)
 [![Build Status](https://badge.buildkite.com/c82093430ceec7d27af05febb9dcafe3aa331fff9d74c0ab9d.svg?branch=master)](https://buildkite.com/chef-oss/chef-chef-master-verify)
 [![Gem Version](https://badge.fury.io/rb/chef.svg)](https://badge.fury.io/rb/chef)
-[![](https://img.shields.io/badge/Release%20Policy-Cadence%20Release-brightgreen.svg)](https://github.com/chef/chef/blob/v15.2.21/docs/dev/design_documents/client_release_cadence.md)
+[![](https://img.shields.io/badge/Release%20Policy-Cadence%20Release-brightgreen.svg)](https://github.com/chef/chef/blob/master/docs/dev/design_documents/client_release_cadence.md)
 
 **Umbrella Project**: [Chef Infra](https://github.com/chef/chef-oss-practices/blob/master/projects/chef-infra.md)
 
@@ -18,7 +18,7 @@ Chef Infra is a configuration management tool designed to bring automation to yo
 
 ### Want to try Chef Infra?
 
-For Chef Infra usage, please refer to our [Learn Chef Rally](https://learn.chef.io/) website, which includes module-based training for Chef Infra, as well as Automate, Habitat, and InSpec.
+For Chef Infra usage, please refer to [Learn Chef](https://learn.chef.io/), our self-paced, entirely free learning platform. Learn Chef also includes module-based training for Chef Infra, as well as Chef Automate, Chef Habitat, and Chef InSpec.
 
 Other useful resources for Chef Infra users:
 
@@ -26,7 +26,7 @@ Other useful resources for Chef Infra users:
 - Source: <https://github.com/chef/chef/tree/master>
 - Tickets/Issues: <https://github.com/chef/chef/issues>
 - Slack: [Chef Community Slack](https://community-slack.chef.io/)
-- Mailing list: <https://discourse.chef.io>
+- Mailing list/Forum: <https://discourse.chef.io>
 
 ## Reporting Issues
 
@@ -46,7 +46,7 @@ We'd love to have your help developing Chef Infra. See our [Contributing Documen
 
 ## License and Copyright
 
-Copyright 2008-2019, Chef Software, Inc.
+Copyright 2008-2020, Chef Software, Inc.
 
 ```
 Licensed under the Apache License, Version 2.0 (the "License");

@@ -267,10 +267,10 @@ describe "Chef::Win32::Registry", :windows_only do
   describe "create_key" do
     before(:all) do
       ::Win32::Registry::HKEY_CURRENT_USER.open("Software\\Root") do |reg|
-        begin
-          reg.delete_key("Trunk", true)
-        rescue
-        end
+
+        reg.delete_key("Trunk", true)
+      rescue
+
       end
     end
 
@@ -322,7 +322,7 @@ describe "Chef::Win32::Registry", :windows_only do
   end
 
   describe "delete_key" do
-    before (:all) do
+    before(:all) do
       ::Win32::Registry::HKEY_CURRENT_USER.create "Software\\Root\\Branch\\Fruit"
       ::Win32::Registry::HKEY_CURRENT_USER.open('Software\\Root\\Branch\\Fruit', Win32::Registry::KEY_ALL_ACCESS) do |reg|
         reg["Apple", Win32::Registry::REG_MULTI_SZ] = %w{Red Juicy}
@@ -362,10 +362,10 @@ describe "Chef::Win32::Registry", :windows_only do
     before(:all) do
       ::Win32::Registry::HKEY_CURRENT_USER.create "Software\\Root\\Trunk"
       ::Win32::Registry::HKEY_CURRENT_USER.open("Software\\Root\\Trunk") do |reg|
-        begin
-          reg.delete_key("Red", true)
-        rescue
-        end
+
+        reg.delete_key("Red", true)
+      rescue
+
       end
     end
 

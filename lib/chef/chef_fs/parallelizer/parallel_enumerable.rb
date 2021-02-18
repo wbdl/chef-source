@@ -145,7 +145,7 @@ class Chef
 
         def each_with_exceptions_unordered
           if @each_running
-            raise "each() called on parallel enumerable twice simultaneously!  Bad mojo"
+            raise "each() called on parallel enumerable twice simultaneously! Bad mojo"
           end
 
           @each_running = true
@@ -235,7 +235,7 @@ class Chef
         # The order of these checks is important, as well, to be thread safe.
         # 1. If @unconsumed_input.empty? is true, then we will never have any more
         # work legitimately picked up.
-        # 2. If @in_process == 0, then there is no work in process, and because ofwhen unconsumed_input is empty, it will never go back up, because
+        # 2. If @in_process == 0, then there is no work in process, and because of when unconsumed_input is empty, it will never go back up, because
         # this is called after the input enumerator is finished.  Note that switching #2 and #1
         # could cause a race, because in_process is incremented *before* consuming input.
         # 3. If @unconsumed_output.empty? is true, then we are done with outputs.

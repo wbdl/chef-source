@@ -29,7 +29,7 @@ class Chef
       default_action :add
       allowed_actions :add, :delete
 
-      description "Use the route resource to manage the system routing table in a Linux environment."
+      description "Use the **route** resource to manage the system routing table in a Linux environment."
 
       property :target, String,
         description: "The IP address of the target route.",
@@ -43,7 +43,7 @@ class Chef
         description: "The route metric value."
 
       property :netmask, [String, nil],
-        description: "The decimal representation of the network mask. For example: 255.255.255.0."
+        description: "The decimal representation of the network mask. For example: `255.255.255.0`."
 
       property :gateway, [String, nil],
         description: "The gateway for the route."

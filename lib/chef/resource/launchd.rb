@@ -24,7 +24,7 @@ class Chef
       unified_mode true
       provides :launchd
 
-      description "Use the launchd resource to manage system-wide services (daemons) and per-user services (agents) on the macOS platform."
+      description "Use the **launchd** resource to manage system-wide services (daemons) and per-user services (agents) on the macOS platform."
       introduced "12.8"
 
       default_action :create
@@ -68,7 +68,7 @@ class Chef
       # check.  According to `man 5 launchd.plist`:
       #   StartCalendarInterval <dictionary of integers or array of dictionaries of integers>
       #     ... Missing arguments are considered to be wildcard.
-      # What the man page doesn't state, but what was observed (OSX 10.11.5, launchctrl v3.4.0)
+      # What the man page doesn't state, but what was observed (OSX 10.11.5, launchctl v3.4.0)
       # Is that keys that are specified, but invalid, will also be treated as a wildcard
       # this means that an entry like:
       #   { "Hour"=>0, "Weekday"=>"6-7"}
@@ -76,20 +76,20 @@ class Chef
       property :start_calendar_interval, [Hash, Array],
         description: "A Hash (similar to crontab) that defines the calendar frequency at which a job is started or an Array.",
         coerce: proc { |type|
-                  # Coerce into an array of hashes to make validation easier
+          # Coerce into an array of hashes to make validation easier
           array = if type.is_a?(Array)
                     type
                   else
                     [type]
                   end
 
-                  # Check to make sure that our array only has hashes
+          # Check to make sure that our array only has hashes
           unless array.all? { |obj| obj.is_a?(Hash) }
             error_msg = "start_calendar_interval must be a single hash or an array of hashes!"
             raise Chef::Exceptions::ValidationFailed, error_msg
           end
 
-                  # Make sure the hashes don't have any incorrect keys/values
+          # Make sure the hashes don't have any incorrect keys/values
           array.each do |entry|
             allowed_keys = %w{Minute Hour Day Weekday Month}
             unless entry.keys.all? { |key| allowed_keys.include?(key) }
@@ -105,7 +105,7 @@ class Chef
             end
           end
 
-                  # Don't return array if we only have one entry
+          # Don't return array if we only have one entry
           if array.size == 1
             array.first
           else
@@ -131,35 +131,35 @@ class Chef
         description: "If a job dies, all remaining processes with the same process ID may be kept running. Set to true to kill all remaining processes."
 
       property :debug, [ TrueClass, FalseClass ],
-        description: "Sets the log mask to LOG_DEBUG for this job."
+        description: "Sets the log mask to `LOG_DEBUG` for this job."
 
       property :disabled, [ TrueClass, FalseClass ], default: false,
-               description: "Hints to launchctl to not submit this job to launchd."
+               description: "Hints to `launchctl` to not submit this job to launchd."
 
       property :enable_globbing, [ TrueClass, FalseClass ],
         description: "Update program arguments before invocation."
 
       property :enable_transactions, [ TrueClass, FalseClass ],
-        description: "Track in-progress transactions; if none, then send the SIGKILL signal."
+        description: "Track in-progress transactions; if none, then send the `SIGKILL` signal."
 
       property :environment_variables, Hash,
         description: "Additional environment variables to set before running a job."
 
       property :exit_timeout, Integer,
-        description: "The amount of time (in seconds) launchd waits before sending a SIGKILL signal."
+        description: "The amount of time (in seconds) launchd waits before sending a `SIGKILL` signal."
 
       property :hard_resource_limits, Hash,
         description: "A Hash of resource limits to be imposed on a job."
 
       property :inetd_compatibility, Hash,
-        description: "Specifies if a daemon expects to be run as if it were launched from inetd. Set to wait => true to pass standard input, output, and error file descriptors. Set to wait => false to call the accept system call on behalf of the job, and then pass standard input, output, and error file descriptors."
+        description: "Specifies if a daemon expects to be run as if it were launched from inetd. Set to `wait => true` to pass standard input, output, and error file descriptors. Set to `wait => false` to call the accept system call on behalf of the job, and then pass standard input, output, and error file descriptors."
 
       property :init_groups, [ TrueClass, FalseClass ],
-        description: "Specify if initgroups is called before running a job."
+        description: "Specify if `initgroups` is called before running a job."
 
       property :keep_alive, [ TrueClass, FalseClass, Hash ],
         introduced: "12.14",
-        description: "Keep a job running continuously (true) or allow demand and conditions on the node to determine if the job keeps running (false)."
+        description: "Keep a job running continuously (true) or allow demand and conditions on the node to determine if the job keeps running (`false`)."
 
       property :launch_events, [ Hash ],
         introduced: "15.1",
@@ -187,13 +187,14 @@ class Chef
         description: "Specify services to be registered with the bootstrap subsystem."
 
       property :nice, Integer,
-        description: "The program scheduling priority value in the range -20 to 20."
+        description: "The program scheduling priority value in the range -20 to 19.",
+        callbacks: { "should be a Integer between -20 and 19" => proc { |v| v >= -20 && v <= 19 } }
 
       property :on_demand, [ TrueClass, FalseClass ],
-        description: "Keep a job alive. Only applies to macOS version 10.4 (and earlier); use keep_alive instead for newer versions."
+        description: "Keep a job alive. Only applies to macOS version 10.4 (and earlier); use `keep_alive` instead for newer versions."
 
       property :process_type, String,
-        description: "The intended purpose of the job: Adaptive, Background, Interactive, or Standard."
+        description: "The intended purpose of the job: `Adaptive`, `Background`, `Interactive`, or `Standard`."
 
       property :program, String,
         description: "The first argument of execvp, typically the file name associated with the file to be executed. This value must be specified if program_arguments is not specified, and vice-versa."
@@ -205,7 +206,7 @@ class Chef
         description: "An array of non-empty directories which, if any are modified, will cause a job to be started."
 
       property :root_directory, String,
-        description: "chroot to this directory, and then run the job."
+        description: "`chroot` to this directory, and then run the job."
 
       property :run_at_load, [ TrueClass, FalseClass ],
         description: "Launch a job once (at the time it is loaded)."
@@ -217,13 +218,13 @@ class Chef
         description: "A Hash of resource limits to be imposed on a job."
 
       property :standard_error_path, String,
-        description: "The file to which standard error (stderr) is sent."
+        description: "The file to which standard error (`stderr`) is sent."
 
       property :standard_in_path, String,
-        description: "The file to which standard input (stdin) is sent."
+        description: "The file to which standard input (`stdin`) is sent."
 
       property :standard_out_path, String,
-        description: "The file to which standard output (stdout) is sent."
+        description: "The file to which standard output (`stdout`) is sent."
 
       property :start_interval, Integer,
         description: "The frequency (in seconds) at which a job is started."
@@ -238,7 +239,7 @@ class Chef
         description: "The amount of time (in seconds) a job may be idle before it times out. If no value is specified, the default timeout value for launchd will be used."
 
       property :umask, Integer,
-        description: "A decimal value to pass to umask before running a job."
+        description: "A decimal value to pass to `umask` before running a job."
 
       property :username, String,
         description: "When launchd is run as the root user, the user to run the job as."
@@ -250,7 +251,7 @@ class Chef
         description: "An array of paths which, if any are modified, will cause a job to be started."
 
       property :working_directory, String,
-        description: "Chdir to this directory, and then run the job."
+        description: "`chdir` to this directory, and then run the job."
     end
   end
 end

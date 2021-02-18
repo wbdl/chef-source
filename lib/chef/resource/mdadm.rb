@@ -26,7 +26,7 @@ class Chef
 
       provides :mdadm
 
-      description "Use the mdadm resource to manage RAID devices in a Linux environment using the mdadm utility. The mdadm resource"\
+      description "Use the **mdadm** resource to manage RAID devices in a Linux environment using the mdadm utility. The mdadm resource"\
                   " will create and assemble an array, but it will not create the config file that is used to persist the array upon"\
                   " reboot. If the config file is required, it must be done by specifying a template with the correct array layout,"\
                   " and then by using the mount provider to create a file systems table (fstab) entry."
@@ -36,7 +36,7 @@ class Chef
 
       property :chunk, Integer,
         default: 16,
-        description: "The chunk size. This property should not be used for a RAID 1 mirrored pair (i.e. when the level property is set to 1)."
+        description: "The chunk size. This property should not be used for a RAID 1 mirrored pair (i.e. when the `level` property is set to `1`)."
 
       property :devices, Array,
         default: lazy { [] },
@@ -63,7 +63,7 @@ class Chef
         description: "An optional property to specify the name of the RAID device if it differs from the resource block's name."
 
       property :layout, String,
-        description: "The RAID5 parity algorithm. Possible values: left-asymmetric (or la), left-symmetric (or ls), right-asymmetric (or ra), or right-symmetric (or rs)."
+        description: "The RAID5 parity algorithm. Possible values: `left-asymmetric` (or `la`), `left-symmetric` (or ls), `right-asymmetric` (or `ra`), or `right-symmetric` (or `rs`)."
 
       action_class do
         def load_current_resource

@@ -28,13 +28,13 @@ class Chef
         provides :package, platform: "gentoo"
         provides :portage_package
 
-        PACKAGE_NAME_PATTERN = %r{(?:([^/]+)/)?([^/]+)}.freeze
+        PACKAGE_NAME_PATTERN = %r{^(?:([^/]+)/)?([^/]+)$}.freeze
 
         def load_current_resource
           @current_resource = Chef::Resource::PortagePackage.new(new_resource.name)
           current_resource.package_name(new_resource.package_name)
 
-          category, pkg = /^#{PACKAGE_NAME_PATTERN}$/.match(new_resource.package_name)[1, 2]
+          category, pkg = PACKAGE_NAME_PATTERN.match(new_resource.package_name)[1, 2]
 
           globsafe_category = category ? Chef::Util::PathHelper.escape_glob_dir(category) : nil
           globsafe_pkg = Chef::Util::PathHelper.escape_glob_dir(pkg)
@@ -70,7 +70,8 @@ class Chef
 
           if pkginfo.exitstatus != 0
             pkginfo.stderr.each_line do |line|
-              if line =~ /[Uu]nqualified atom .*match.* multiple/
+              # cspell:disable-next-line
+              if /[Uu]nqualified atom .*match.* multiple/.match?(line)
                 raise_error_for_query("matched multiple packages (please specify a category):\n#{pkginfo.inspect}")
               end
             end
@@ -87,7 +88,7 @@ class Chef
           end
 
           pkginfo.stdout.chomp!
-          if pkginfo.stdout =~ /-r\d+$/
+          if /-r\d+$/.match?(pkginfo.stdout)
             # Latest/Best version of the package is a revision (-rX).
             @candidate_version = pkginfo.stdout.split(/(?<=-)/).last(2).join
           else

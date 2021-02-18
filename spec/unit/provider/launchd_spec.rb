@@ -131,8 +131,8 @@ describe Chef::Provider::Launchd do
           new_resource.program "/Library/scripts/call_mom.sh"
           new_resource.time_out 300
           new_resource.start_calendar_interval "Hour" => 10, "Weekday" => 7
-          expect(provider.content?).to be_truthy
-          expect(provider.content).to eql(test_plist)
+          expect(provider.file_content?).to be_truthy
+          expect(provider.file_content).to eql(test_plist)
         end
       end
 
@@ -147,8 +147,8 @@ describe Chef::Provider::Launchd do
           new_resource.program "/Library/scripts/call_mom.sh"
           new_resource.time_out 300
           new_resource.start_calendar_interval allowed
-          expect(provider.content?).to be_truthy
-          expect(provider.content).to eql(test_plist_multiple_intervals)
+          expect(provider.file_content?).to be_truthy
+          expect(provider.file_content).to eql(test_plist_multiple_intervals)
         end
 
         it "should allow all StartCalendarInterval keys" do
@@ -162,9 +162,9 @@ describe Chef::Provider::Launchd do
           new_resource.program "/Library/scripts/call_mom.sh"
           new_resource.time_out 300
           new_resource.start_calendar_interval allowed
-          expect(provider.content?).to be_truthy
+          expect(provider.file_content?).to be_truthy
           %w{Minute Hour Day Weekday Month}.each do |key|
-            expect(provider.content).to include("<key>#{key}</key>")
+            expect(provider.file_content).to include("<key>#{key}</key>")
           end
         end
 
@@ -188,50 +188,8 @@ describe Chef::Provider::Launchd do
       describe "hash is passed" do
         it "should produce the test_plist content from the plist_hash property" do
           new_resource.plist_hash test_hash
-          expect(provider.content?).to be_truthy
-          expect(provider.content).to eql(test_plist)
-        end
-      end
-    end
-
-    describe "with an :enable action" do
-      describe "and the file has been updated" do
-        before(:each) do
-          allow(provider).to receive(
-            :manage_plist
-          ).with(:create).and_return(true)
-          allow(provider).to receive(
-            :manage_service
-          ).with(:restart).and_return(true)
-        end
-
-        it "should call manage_service with a :restart action" do
-          expect(provider.manage_service(:restart)).to be_truthy
-        end
-
-        it "works with action enable" do
-          expect(run_resource_setup_for_action(:enable)).to be_truthy
-          provider.action_enable
-        end
-      end
-
-      describe "and the file has not been updated" do
-        before(:each) do
-          allow(provider).to receive(
-            :manage_plist
-          ).with(:create).and_return(nil)
-          allow(provider).to receive(
-            :manage_service
-          ).with(:enable).and_return(true)
-        end
-
-        it "should call manage_service with a :enable action" do
-          expect(provider.manage_service(:enable)).to be_truthy
-        end
-
-        it "works with action enable" do
-          expect(run_resource_setup_for_action(:enable)).to be_truthy
-          provider.action_enable
+          expect(provider.file_content?).to be_truthy
+          expect(provider.file_content).to eql(test_plist)
         end
       end
     end

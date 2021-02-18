@@ -16,7 +16,7 @@
 #
 
 require_relative "../resource"
-require "chef-vault"
+autoload :ChefVault, "chef-vault"
 
 class Chef
   class Resource
@@ -26,9 +26,9 @@ class Chef
       provides :chef_vault_secret
 
       introduced "16.0"
-      description "Use the chef_vault_secret resource to store secrets in Chef Vault items. Where possible and relevant, this resource attempts to map behavior and functionality to the knife vault sub-commands."
+      description "Use the **chef_vault_secret** resource to store secrets in Chef Vault items. Where possible and relevant, this resource attempts to map behavior and functionality to the knife vault sub-commands."
       examples <<~DOC
-        To create a 'foo' item in an existing 'bar' data bag:
+        **To create a 'foo' item in an existing 'bar' data bag**:
 
         ```ruby
         chef_vault_secret 'foo' do
@@ -39,13 +39,13 @@ class Chef
         end
         ```
 
-        To allow multiple admins access to an item:
+        **To allow multiple admins access to an item**:
 
         ```ruby
         chef_vault_secret 'root-password' do
           admins 'jtimberman,paulmooring'
           data_bag 'secrets'
-          raw_data({'auth' => 'DontUseThisPasswordForRoot'})
+          raw_data({'auth' => 'DoNotUseThisPasswordForRoot'})
           search '*:*'
         end
         ```
@@ -73,23 +73,22 @@ class Chef
         description: "The Chef environment of the data if storing per environment values."
 
       load_current_value do
-        begin
-          item = ChefVault::Item.load(data_bag, id)
-          raw_data item.raw_data
-          clients item.get_clients
-          admins item.get_admins
-          search item.search
-        rescue ChefVault::Exceptions::SecretDecryption
-          current_value_does_not_exist!
-        rescue ChefVault::Exceptions::KeysNotFound
-          current_value_does_not_exist!
-        rescue Net::HTTPClientException => e
-          current_value_does_not_exist! if e.response_code == "404"
-        end
+
+        item = ChefVault::Item.load(data_bag, id)
+        raw_data item.raw_data
+        clients item.get_clients
+        admins item.get_admins
+        search item.search
+      rescue ChefVault::Exceptions::SecretDecryption
+        current_value_does_not_exist!
+      rescue ChefVault::Exceptions::KeysNotFound
+        current_value_does_not_exist!
+      rescue Net::HTTPClientException => e
+        current_value_does_not_exist! if e.response_code == "404"
+
       end
 
-      action :create do
-        description "Creates the item, or updates it if it already exists."
+      action :create, description: "Creates the item, or updates it if it already exists." do
 
         converge_if_changed do
           item = ChefVault::Item.new(new_resource.data_bag, new_resource.id)
@@ -111,15 +110,11 @@ class Chef
         end
       end
 
-      action :create_if_missing do
-        description "Calls the create action unless it exists."
-
+      action :create_if_missing, description: "Calls the create action unless it exists." do
         action_create if current_resource.nil?
       end
 
-      action :delete do
-        description "Deletes the item and the item's keys ('id'_keys)."
-
+      action :delete, description: "Deletes the item and the item's keys ('id'_keys)." do
         chef_data_bag_item new_resource.id do
           data_bag new_resource.data_bag
           action :delete

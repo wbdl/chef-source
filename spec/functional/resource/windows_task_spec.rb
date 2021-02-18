@@ -17,18 +17,18 @@
 #
 
 require "spec_helper"
-require "chef/provider/windows_task"
-require "chef/dist"
+require "chef-utils/dist"
 
 describe Chef::Resource::WindowsTask, :windows_only do
   # resource.task.application_name will default to task_name unless resource.command is set
   let(:task_name) { "chef-client-functional-test" }
-  let(:new_resource) { Chef::Resource::WindowsTask.new(task_name) }
+  let(:new_resource) { Chef::Resource::WindowsTask.new(task_name, run_context) }
   let(:windows_task_provider) do
-    node = Chef::Node.new
-    events = Chef::EventDispatch::Dispatcher.new
-    run_context = Chef::RunContext.new(node, {}, events)
-    Chef::Provider::WindowsTask.new(new_resource, run_context)
+    new_resource.provider_for_action(:create)
+  end
+
+  let(:run_context) do
+    Chef::RunContext.new(Chef::Node.new, {}, Chef::EventDispatch::Dispatcher.new)
   end
 
   describe "action :create" do
@@ -46,37 +46,37 @@ describe Chef::Resource::WindowsTask, :windows_only do
 
       context "With Arguments" do
         it "creates scheduled task and sets command arguments" do
-          subject.command "#{Chef::Dist::CLIENT} -W"
+          subject.command "#{ChefUtils::Dist::Infra::CLIENT} -W"
           call_for_create_action
           # loading current resource again to check new task is creted and it matches task parameters
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)
-          expect(current_resource.task.application_name).to eq(Chef::Dist::CLIENT)
+          expect(current_resource.task.application_name).to eq(ChefUtils::Dist::Infra::CLIENT)
           expect(current_resource.task.parameters).to eq("-W")
         end
 
         it "does not converge the resource if it is already converged" do
-          subject.command "#{Chef::Dist::CLIENT} -W"
+          subject.command "#{ChefUtils::Dist::Infra::CLIENT} -W"
           subject.run_action(:create)
-          subject.command "#{Chef::Dist::CLIENT} -W"
+          subject.command "#{ChefUtils::Dist::Infra::CLIENT} -W"
           subject.run_action(:create)
           expect(subject).not_to be_updated_by_last_action
         end
 
         it "creates scheduled task and sets command arguments when arguments inclusive single quotes" do
-          subject.command "#{Chef::Dist::CLIENT} -W -L 'C:\\chef\\chef-ad-join.log'"
+          subject.command "#{ChefUtils::Dist::Infra::CLIENT} -W -L 'C:\\chef\\chef-ad-join.log'"
           call_for_create_action
           # loading current resource again to check new task is creted and it matches task parameters
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)
-          expect(current_resource.task.application_name).to eq(Chef::Dist::CLIENT)
+          expect(current_resource.task.application_name).to eq(ChefUtils::Dist::Infra::CLIENT)
           expect(current_resource.task.parameters).to eq("-W -L 'C:\\chef\\chef-ad-join.log'")
         end
 
         it "does not converge the resource if it is already converged" do
-          subject.command "#{Chef::Dist::CLIENT} -W -L 'C:\\chef\\chef-ad-join.log'"
+          subject.command "#{ChefUtils::Dist::Infra::CLIENT} -W -L 'C:\\chef\\chef-ad-join.log'"
           subject.run_action(:create)
-          subject.command "#{Chef::Dist::CLIENT} -W -L 'C:\\chef\\chef-ad-join.log'"
+          subject.command "#{ChefUtils::Dist::Infra::CLIENT} -W -L 'C:\\chef\\chef-ad-join.log'"
           subject.run_action(:create)
           expect(subject).not_to be_updated_by_last_action
         end
@@ -136,19 +136,19 @@ describe Chef::Resource::WindowsTask, :windows_only do
 
       context "Without Arguments" do
         it "creates scheduled task and sets command arguments" do
-          subject.command Chef::Dist::CLIENT
+          subject.command ChefUtils::Dist::Infra::CLIENT
           call_for_create_action
           # loading current resource again to check new task is creted and it matches task parameters
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)
-          expect(current_resource.task.application_name).to eq(Chef::Dist::CLIENT)
+          expect(current_resource.task.application_name).to eq(ChefUtils::Dist::Infra::CLIENT)
           expect(current_resource.task.parameters).to be_empty
         end
 
         it "does not converge the resource if it is already converged" do
-          subject.command Chef::Dist::CLIENT
+          subject.command ChefUtils::Dist::Infra::CLIENT
           subject.run_action(:create)
-          subject.command Chef::Dist::CLIENT
+          subject.command ChefUtils::Dist::Infra::CLIENT
           subject.run_action(:create)
           expect(subject).not_to be_updated_by_last_action
         end
@@ -317,12 +317,12 @@ describe Chef::Resource::WindowsTask, :windows_only do
         expect(subject).not_to be_updated_by_last_action
       end
 
-      it "updates a scheduled task to run every 5 hrs when frequency modifer updated to 5" do
+      it "updates a scheduled task to run every 5 hrs when frequency modifier updated to 5" do
         subject.run_action(:create)
         current_resource = call_for_load_current_resource
         trigger_details = current_resource.task.trigger(0)
         expect(trigger_details[:minutes_interval]).to eq(180)
-        # updating frequency modifer to 5 from 3
+        # updating frequency modifier to 5 from 3
         subject.frequency_modifier 5
         subject.run_action(:create)
         expect(subject).to be_updated_by_last_action
@@ -501,7 +501,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
 
         it "raises argument error if frequency_modifier is 'first, second' and day is not provided." do
           subject.frequency_modifier "first, second"
-          expect { subject.after_created }.to raise_error("Please select day on which you want to run the task e.g. 'Mon, Tue'. Multiple values must be seprated by comma.")
+          expect { subject.after_created }.to raise_error("Please select day on which you want to run the task e.g. 'Mon, Tue'. Multiple values must be separated by comma.")
         end
 
         it "raises argument error if months is passed along with frequency_modifier" do
@@ -513,13 +513,13 @@ describe Chef::Resource::WindowsTask, :windows_only do
         it "not raises any Argument error if frequency_modifier set as 'first, second, third' and day is provided" do
           subject.frequency_modifier "first, second, third"
           subject.day "Mon, Fri"
-          expect { subject.after_created }.not_to raise_error(ArgumentError)
+          expect { subject.after_created }.not_to raise_error
         end
 
         it "not raises any Argument error if frequency_modifier 2 " do
           subject.frequency_modifier 2
           subject.day "Mon, Sun"
-          expect { subject.after_created }.not_to raise_error(ArgumentError)
+          expect { subject.after_created }.not_to raise_error
         end
 
         it "raises argument error if frequency_modifier > 12" do
@@ -532,10 +532,10 @@ describe Chef::Resource::WindowsTask, :windows_only do
           expect { subject.after_created }.to raise_error("frequency_modifier value 0 is invalid. Valid values for :monthly frequency are 1 - 12, 'FIRST', 'SECOND', 'THIRD', 'FOURTH', 'LAST'.")
         end
 
-        it "creates scheduled task to run task monthly on Monday and Friday of first, second and thrid week of month" do
+        it "creates scheduled task to run task monthly on Monday and Friday of first, second and third week of month" do
           subject.frequency_modifier "first, second, third"
           subject.day "Mon, Fri"
-          expect { subject.after_created }.not_to raise_error(ArgumentError)
+          expect { subject.after_created }.not_to raise_error
           call_for_create_action
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)
@@ -558,7 +558,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
         it "creates scheduled task to run task monthly on every 6 months when frequency_modifier is 6 and to run on 1st and 2nd day of month" do
           subject.frequency_modifier 6
           subject.day "1, 2"
-          expect { subject.after_created }.not_to raise_error(ArgumentError)
+          expect { subject.after_created }.not_to raise_error
           call_for_create_action
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)
@@ -590,7 +590,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
 
         it "creates scheduled task to run monthly to run last day of the month" do
           subject.day "last"
-          expect { subject.after_created }.not_to raise_error(ArgumentError)
+          expect { subject.after_created }.not_to raise_error
           call_for_create_action
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)
@@ -611,7 +611,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
 
         it "day property set as 'lastday' creates scheduled task to run monthly to run last day of the month" do
           subject.day "lastday"
-          expect { subject.after_created }.not_to raise_error(ArgumentError)
+          expect { subject.after_created }.not_to raise_error
           call_for_create_action
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)
@@ -635,7 +635,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
         it "creates scheduled task to run monthly on last week of the month" do
           subject.frequency_modifier "last"
           subject.day "Mon, Fri"
-          expect { subject.after_created }.not_to raise_error(ArgumentError)
+          expect { subject.after_created }.not_to raise_error
           call_for_create_action
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)
@@ -659,7 +659,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
       context "when wild card (*) set as months" do
         it "creates the scheduled task to run on 1st day of the all months" do
           subject.months "*"
-          expect { subject.after_created }.not_to raise_error(ArgumentError)
+          expect { subject.after_created }.not_to raise_error
           call_for_create_action
           current_resource = call_for_load_current_resource
           expect(current_resource.exists).to eq(true)

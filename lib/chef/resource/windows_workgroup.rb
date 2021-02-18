@@ -16,18 +16,33 @@
 #
 
 require_relative "../resource"
-require_relative "../mixin/powershell_out"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Resource
     class WindowsWorkgroup < Chef::Resource
+      unified_mode true
+
       provides :windows_workgroup
 
-      include Chef::Mixin::PowershellOut
-
-      description "Use the windows_workgroup resource to join or change the workgroup of a Windows host."
+      description "Use the **windows_workgroup** resource to join or change the workgroup of a Windows host."
       introduced "14.5"
+      examples <<~DOC
+      **Join a workgroup**:
+
+      ``` ruby
+      windows_workgroup 'myworkgroup'
+      ```
+
+      **Join a workgroup using a specific user**:
+
+      ``` ruby
+      windows_workgroup 'myworkgroup' do
+        user 'Administrator'
+        password 'passw0rd'
+      end
+      ```
+      DOC
 
       property :workgroup_name, String,
         description: "An optional property to set the workgroup name if it differs from the resource block's name.",
@@ -36,17 +51,18 @@ class Chef
         name_property: true
 
       property :user, String,
-        description: "The local administrator user to use to change the workgroup. Required if using the password property.",
+        description: "The local administrator user to use to change the workgroup. Required if using the `password` property.",
         desired_state: false
 
       property :password, String,
-        description: "The password for the local administrator user. Required if using the user property.",
+        description: "The password for the local administrator user. Required if using the `user` property.",
+        sensitive: true,
         desired_state: false
 
       property :reboot, Symbol,
         equal_to: %i{never request_reboot reboot_now},
-        validation_message: "The reboot property accepts :immediate (reboot as soon as the resource completes), :delayed (reboot once the #{Chef::Dist::PRODUCT} run completes), and :never (Don't reboot)",
-        description: "Controls the system reboot behavior post workgroup joining. Reboot immediately, after the #{Chef::Dist::PRODUCT} run completes, or never. Note that a reboot is necessary for changes to take effect.",
+        validation_message: "The reboot property accepts :immediate (reboot as soon as the resource completes), :delayed (reboot once the #{ChefUtils::Dist::Infra::PRODUCT} run completes), and :never (Don't reboot)",
+        description: "Controls the system reboot behavior post workgroup joining. Reboot immediately, after the #{ChefUtils::Dist::Infra::PRODUCT} run completes, or never. Note that a reboot is necessary for changes to take effect.",
         coerce: proc { |x| clarify_reboot(x) },
         default: :immediate, desired_state: false
 
@@ -67,16 +83,16 @@ class Chef
       end
 
       # define this again so we can default it to true. Otherwise failures print the password
+      # FIXME: this should now be unnecessary with the password property itself marked sensitive?
       property :sensitive, [TrueClass, FalseClass],
         default: true, desired_state: false
 
-      action :join do
-        description "Update the workgroup."
+      action :join, description: "Update the workgroup." do
 
         unless workgroup_member?
           converge_by("join workstation workgroup #{new_resource.workgroup_name}") do
-            ps_run = powershell_out(join_command)
-            raise "Failed to join the workgroup #{new_resource.workgroup_name}: #{ps_run.stderr}}" if ps_run.error?
+            ps_run = powershell_exec(join_command)
+            raise "Failed to join the workgroup #{new_resource.workgroup_name}: #{ps_run.errors}}" if ps_run.error?
 
             unless new_resource.reboot == :never
               reboot "Reboot to join workgroup #{new_resource.workgroup_name}" do
@@ -102,10 +118,10 @@ class Chef
 
         # @return [Boolean] is the node a member of the workgroup specified in the resource
         def workgroup_member?
-          node_workgroup = powershell_out!("(Get-WmiObject -Class Win32_ComputerSystem).Workgroup")
+          node_workgroup = powershell_exec!("(Get-WmiObject -Class Win32_ComputerSystem).Workgroup")
           raise "Failed to determine if system already a member of workgroup #{new_resource.workgroup_name}" if node_workgroup.error?
 
-          node_workgroup.stdout.downcase.strip == new_resource.workgroup_name.downcase
+          String(node_workgroup.result).downcase.strip == new_resource.workgroup_name.downcase
         end
       end
     end

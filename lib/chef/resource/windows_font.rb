@@ -21,11 +21,21 @@ class Chef
   class Resource
     class WindowsFont < Chef::Resource
       require_relative "../util/path_helper"
+      unified_mode true
 
       provides(:windows_font) { true }
 
-      description "Use the windows_font resource to install font files on Windows. By default, the font is sourced from the cookbook using the resource, but a URI source can be specified as well."
+      description "Use the **windows_font** resource to install font files on Windows. By default, the font is sourced from the cookbook using the resource, but a URI source can be specified as well."
       introduced "14.0"
+      examples <<~DOC
+      **Install a font from a https source**:
+
+      ```ruby
+      windows_font 'Custom.otf' do
+        source 'https://example.com/Custom.otf'
+      end
+      ```
+      DOC
 
       property :font_name, String,
         description: "An optional property to set the name of the font to install if it differs from the resource block's name.",
@@ -33,7 +43,7 @@ class Chef
 
       property :source, String,
         description: "A local filesystem path or URI that is used to source the font file.",
-        coerce: proc { |x| x =~ /^.:.*/ ? x.tr('\\', "/").gsub("//", "/") : x }
+        coerce: proc { |x| /^.:.*/.match?(x) ? x.tr('\\', "/").gsub("//", "/") : x }
 
       action :install do
         description "Install a font to the system fonts directory."
@@ -75,7 +85,7 @@ class Chef
 
         # install the font into the appropriate fonts directory
         def install_font
-          require "win32ole" if RUBY_PLATFORM =~ /mswin|mingw32|windows/
+          require "win32ole" if RUBY_PLATFORM.match?(/mswin|mingw32|windows/)
           fonts_dir = Chef::Util::PathHelper.join(ENV["windir"], "fonts")
           folder = WIN32OLE.new("Shell.Application").Namespace(fonts_dir)
           converge_by("install font #{new_resource.font_name} to #{fonts_dir}") do
@@ -87,10 +97,11 @@ class Chef
         #
         # @return [Boolean] Is the font is installed?
         def font_exists?
-          require "win32ole" if RUBY_PLATFORM =~ /mswin|mingw32|windows/
+          require "win32ole" if RUBY_PLATFORM.match?(/mswin|mingw32|windows/)
           fonts_dir = WIN32OLE.new("WScript.Shell").SpecialFolders("Fonts")
+          fonts_dir_local = Chef::Util::PathHelper.join(ENV["home"], "AppData/Local/Microsoft/Windows/fonts")
           logger.trace("Seeing if the font at #{Chef::Util::PathHelper.join(fonts_dir, new_resource.font_name)} exists")
-          ::File.exist?(Chef::Util::PathHelper.join(fonts_dir, new_resource.font_name))
+          ::File.exist?(Chef::Util::PathHelper.join(fonts_dir, new_resource.font_name)) || ::File.exist?(Chef::Util::PathHelper.join(fonts_dir_local, new_resource.font_name))
         end
 
         # Parse out the schema provided to us to see if it's one we support via remote_file.

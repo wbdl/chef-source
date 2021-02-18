@@ -40,7 +40,7 @@ class Chef
           shell_out!("userdel", userdel_options, new_resource.username)
         end
 
-        # Aix does not support -r like other unix, sytem account is created by adding to 'system' group
+        # Aix does not support -r like other unix, system account is created by adding to 'system' group
         def useradd_options
           opts = []
           opts << "-g" << "system" if new_resource.system
@@ -68,7 +68,7 @@ class Chef
 
         def check_lock
           lock_info = shell_out!("lsuser", "-a", "account_locked", new_resource.username)
-          if whyrun_mode? && passwd_s.stdout.empty? && lock_info.stderr.match(/does not exist/)
+          if whyrun_mode? && passwd_s.stdout.empty? && lock_info.stderr.include?("does not exist")
             # if we're in whyrun mode and the user is not yet created we assume it would be
             return false
           end

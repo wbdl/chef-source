@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
@@ -58,6 +59,7 @@ RSpec.describe ChefUtils::DSL::Platform do
   class ThingWithANode
     include ChefUtils::DSL::Platform
     attr_accessor :node
+
     def initialize(node)
       @node = node
     end
@@ -69,6 +71,7 @@ RSpec.describe ChefUtils::DSL::Platform do
       attr_accessor :node
     end
     attr_accessor :run_context
+
     def initialize(node)
       @run_context = RunContext.new
       run_context.node = node
@@ -78,6 +81,7 @@ RSpec.describe ChefUtils::DSL::Platform do
   class ThingWithTheDSL
     include ChefUtils
     attr_accessor :node
+
     def initialize(node)
       @node = node
     end

@@ -21,6 +21,8 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsDnsZone < Chef::Resource
+      unified_mode true
+
       provides :windows_dns_zone
 
       description "The windows_dns_zone resource creates an Active Directory Integrated DNS Zone on the local server."
@@ -38,24 +40,23 @@ class Chef
         description: "The type of DNS server, Domain or Standalone.",
         default: "Domain", equal_to: %w{Domain Standalone}
 
-      action :create do
-        description "Creates and updates a DNS Zone."
+      action :create, description: "Creates and updates a DNS Zone" do
+        powershell_package "xDnsServer"
 
-        powershell_package "xDnsServer" do
-        end
-        do_it "Present"
+        run_dsc_resource "Present"
       end
 
-      action :delete do
-        description "Deletes a DNS Zone."
+      action :delete, description: "Deletes a DNS Zone" do
+        powershell_package "xDnsServer"
 
-        powershell_package "xDnsServer" do
-        end
-        do_it "Absent"
+        run_dsc_resource "Absent"
       end
 
       action_class do
-        def do_it(ensure_prop)
+        private
+
+        # @api private
+        def run_dsc_resource(ensure_prop)
           if new_resource.server_type == "Domain"
             dsc_resource "xDnsServerADZone #{new_resource.zone_name} #{ensure_prop}" do
               module_name "xDnsServer"

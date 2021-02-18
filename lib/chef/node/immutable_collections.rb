@@ -19,6 +19,7 @@ require_relative "common_api"
 require_relative "mixin/state_tracking"
 require_relative "mixin/immutablize_array"
 require_relative "mixin/immutablize_hash"
+require_relative "../delayed_evaluator"
 
 class Chef
   class Node
@@ -109,6 +110,12 @@ class Chef
         key
       end
 
+      def [](*args)
+        value = super
+        value = value.call while value.is_a?(::Chef::DelayedEvaluator)
+        value
+      end
+
       prepend Chef::Node::Mixin::StateTracking
       prepend Chef::Node::Mixin::ImmutablizeArray
     end
@@ -120,7 +127,7 @@ class Chef
     # ImmutableMash acts like a Mash (Hash that is indifferent to String or
     # Symbol keys), with some important exceptions:
     # * Methods that mutate state are overridden to raise an error instead.
-    # * Methods that read from the collection are overriden so that they check
+    # * Methods that read from the collection are overridden so that they check
     #   if the Chef::Node::Attribute has been modified since an instance of
     #   this class was generated. An error is raised if the object detects that
     #   it is stale.
@@ -185,6 +192,12 @@ class Chef
         e.dup
       rescue TypeError
         e
+      end
+
+      def [](*args)
+        value = super
+        value = value.call while value.is_a?(::Chef::DelayedEvaluator)
+        value
       end
 
       prepend Chef::Node::Mixin::StateTracking

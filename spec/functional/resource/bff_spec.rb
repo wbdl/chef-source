@@ -16,7 +16,6 @@
 # limitations under the License.
 #
 
-require "functional/resource/base"
 require "chef/mixin/shell_out"
 
 # Run the test only for AIX platform.
@@ -24,6 +23,7 @@ describe Chef::Resource::BffPackage, :requires_root, external: ohai[:platform] !
   include Chef::Mixin::ShellOut
 
   let(:new_resource) do
+    run_context = Chef::RunContext.new(Chef::Node.new, {}, Chef::EventDispatch::Dispatcher.new)
     new_resource = Chef::Resource::BffPackage.new(@pkg_name, run_context)
     new_resource.source @pkg_path
     new_resource
@@ -31,12 +31,12 @@ describe Chef::Resource::BffPackage, :requires_root, external: ohai[:platform] !
 
   def bff_pkg_should_be_installed(resource)
     expect(shell_out("lslpp -L #{resource.name}").exitstatus).to eq(0)
-    ::File.exists?("/usr/PkgA/bin/acommand")
+    ::File.exist?("/usr/PkgA/bin/acommand")
   end
 
   def bff_pkg_should_be_removed(resource)
     expect(shell_out("lslpp -L #{resource.name}").exitstatus).to eq(1)
-    !::File.exists?("/usr/PkgA/bin/acommand")
+    !::File.exist?("/usr/PkgA/bin/acommand")
   end
 
   before(:all) do

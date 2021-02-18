@@ -144,7 +144,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
       resource.frequency :once
       resource.random_delay "20"
       resource.start_time "15:00"
-      expect { resource.after_created }.to_not raise_error(ArgumentError, "`random_delay` property is supported only for frequency :once, :minute, :hourly, :daily, :weekly and :monthly")
+      expect { resource.after_created }.to_not raise_error
     end
 
     it "raises error for invalid random_delay" do
@@ -218,7 +218,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
     end
 
     it "raise error when priority value less than 0" do
-      expect { resource.priority (-1) }.to raise_error(Chef::Exceptions::ValidationFailed, "Option priority's value -1 should be in range of 0 to 10!")
+      expect { resource.priority(-1) }.to raise_error(Chef::Exceptions::ValidationFailed, "Option priority's value -1 should be in range of 0 to 10!")
     end
 
     it "raise error when priority values is greater than 10" do

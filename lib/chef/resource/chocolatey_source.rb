@@ -20,10 +20,11 @@ class Chef
       unified_mode true
       provides :chocolatey_source
 
-      description "Use the chocolatey_source resource to add, remove, enable, or disable Chocolatey sources."
+      description "Use the **chocolatey_source** resource to add, remove, enable, or disable Chocolatey sources."
       introduced "14.3"
       examples <<~DOC
-        Add a Chocolatey source
+        **Add a Chocolatey source**
+
         ```ruby
         chocolatey_source 'MySource' do
           source 'http://example.com/something'
@@ -31,7 +32,8 @@ class Chef
         end
         ```
 
-        Remove a Chocolatey source
+        **Remove a Chocolatey source**
+
         ```ruby
         chocolatey_source 'MySource' do
           action :remove
@@ -87,8 +89,7 @@ class Chef
         data ? data.attributes : nil # REXML just returns nil if it can't find anything so avoid an undefined method error
       end
 
-      action :add do
-        description "Adds a Chocolatey source."
+      action :add, description: "Adds a Chocolatey source" do
 
         raise "#{new_resource}: When adding a Chocolatey source you must pass the 'source' property!" unless new_resource.source
 
@@ -97,8 +98,7 @@ class Chef
         end
       end
 
-      action :remove do
-        description "Removes a Chocolatey source."
+      action :remove, description: "Removes a Chocolatey source" do
 
         if current_resource
           converge_by("remove Chocolatey source '#{new_resource.source_name}'") do
@@ -107,9 +107,7 @@ class Chef
         end
       end
 
-      action :disable do
-        description "Disables a Chocolatey source."
-
+      action :disable, description: "Disables a Chocolatey source." do
         if current_resource.disabled != true
           converge_by("disable Chocolatey source '#{new_resource.source_name}'") do
             shell_out!(choco_cmd("disable"))
@@ -117,9 +115,7 @@ class Chef
         end
       end
 
-      action :enable do
-        description "Enables a Chocolatey source."
-
+      action :enable, description: "Enables a Chocolatey source." do
         if current_resource.disabled == true
           converge_by("enable Chocolatey source '#{new_resource.source_name}'") do
             shell_out!(choco_cmd("enable"))

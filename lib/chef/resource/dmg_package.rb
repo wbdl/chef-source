@@ -24,10 +24,11 @@ class Chef
 
       provides(:dmg_package) { true }
 
-      description "Use the dmg_package resource to install a package from a .dmg file. The resource will retrieve the dmg file from a remote URL, mount it using OS X's hdidutil, copy the application (.app directory) to the specified destination (/Applications), and detach the image using hdiutil. The dmg file will be stored in the Chef::Config[:file_cache_path]."
+      description "Use the **dmg_package** resource to install a package from a .dmg file. The resource will retrieve the dmg file from a remote URL, mount it using macOS' `hdidutil`, copy the application (.app directory) to the specified destination (`/Applications`), and detach the image using `hdiutil`. The dmg file will be stored in the `Chef::Config[:file_cache_path]`."
       introduced "14.0"
       examples <<~DOC
-        Install Google Chrome via the DMG package
+        **Install Google Chrome via the DMG package**:
+
         ```ruby
         dmg_package 'Google Chrome' do
           dmg_name 'googlechrome'
@@ -37,7 +38,8 @@ class Chef
         end
         ```
 
-        Install Virtualbox from the .mpkg
+        **Install VirtualBox from the .mpkg**:
+
         ```ruby
         dmg_package 'Virtualbox' do
           source 'http://dlc.sun.com.edgesuite.net/virtualbox/4.0.8/VirtualBox-4.0.8-71778-OSX.dmg'
@@ -45,7 +47,8 @@ class Chef
         end
         ```
 
-        Install pgAdmin and automatically accept the EULA
+        **Install pgAdmin and automatically accept the EULA**:
+
         ```ruby
         dmg_package 'pgAdmin3' do
           source   'http://wwwmaster.postgresql.org/redir/198/h/pgadmin3/release/v1.12.3/osx/pgadmin3-1.12.3.dmg'
@@ -56,31 +59,31 @@ class Chef
       DOC
 
       property :app, String,
-        description: "The name of the application as it appears in the /Volumes directory if it differs from the resource block's name.",
+        description: "The name of the application as it appears in the `/Volumes` directory if it differs from the resource block's name.",
         name_property: true
 
       property :source, String,
-        description: "The remote URL that is used to download the .dmg file, if specified."
+        description: "The remote URL that is used to download the `.dmg` file, if specified."
 
       property :file, String,
-        description: "The full path to the .dmg file on the local system."
+        description: "The absolute path to the `.dmg` file on the local system."
 
       property :owner, [String, Integer],
         description: "The user that should own the package installation."
 
       property :destination, String,
-        description: "The directory to copy the .app into.",
+        description: "The directory to copy the `.app` into.",
         default: "/Applications"
 
       property :checksum, String,
-        description: "The sha256 checksum of the .dmg file to download."
+        description: "The sha256 checksum of the `.dmg` file to download."
 
       property :volumes_dir, String,
-        description: "The directory under /Volumes where the dmg is mounted if it differs from the name of the .dmg file.",
+        description: "The directory under `/Volumes` where the `dmg` is mounted if it differs from the name of the `.dmg` file.",
         default: lazy { app }, default_description: "The value passed for the application name."
 
       property :dmg_name, String,
-        description: "The name of the .dmg file if it differs from that of the app, or if the name has spaces.",
+        description: "The name of the `.dmg` file if it differs from that of the app, or if the name has spaces.",
         desired_state: false,
         default: lazy { app }, default_description: "The value passed for the application name."
 
@@ -90,18 +93,18 @@ class Chef
         default: "app", desired_state: false
 
       property :package_id, String,
-        description: "The package ID that is registered with pkgutil when a pkg or mpkg is installed."
+        description: "The package ID that is registered with `pkgutil` when a `pkg` or `mpkg` is installed."
 
       property :dmg_passphrase, String,
-        description: "Specify a passphrase to be used to decrypt the .dmg file during the mount process.",
+        description: "Specify a passphrase to be used to decrypt the `.dmg` file during the mount process.",
         desired_state: false
 
       property :accept_eula, [TrueClass, FalseClass],
-        description: "Specify whether to accept the EULA. Certain dmgs require acceptance of EULA before mounting.",
+        description: "Specify whether to accept the EULA. Certain dmg files require acceptance of EULA before mounting.",
         default: false, desired_state: false
 
       property :headers, Hash,
-        description: "Allows custom HTTP headers (like cookies) to be set on the remote_file resource.",
+        description: "Allows custom HTTP headers (like cookies) to be set on the `remote_file` resource.",
         desired_state: false
 
       property :allow_untrusted, [TrueClass, FalseClass],
@@ -118,9 +121,7 @@ class Chef
         end
       end
 
-      action :install do
-        description "Installs the application."
-
+      action :install, description: "Installs the application" do
         if current_resource.nil?
           if new_resource.source
             remote_file dmg_file do

@@ -16,15 +16,46 @@
 #
 
 require_relative "../resource"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 class Chef
   class Resource
     class WindowsAdJoin < Chef::Resource
       provides :windows_ad_join
 
-      description "Use the windows_ad_join resource to join a Windows Active Directory domain."
+      unified_mode true
+
+      description "Use the **windows_ad_join** resource to join a Windows Active Directory domain."
       introduced "14.0"
+      examples <<~DOC
+      **Join a domain**
+
+      ```ruby
+      windows_ad_join 'ad.example.org' do
+        domain_user 'nick'
+        domain_password 'p@ssw0rd1'
+      end
+      ```
+
+      **Join a domain, as `win-workstation`**
+
+      ```ruby
+      windows_ad_join 'ad.example.org' do
+        domain_user 'nick'
+        domain_password 'p@ssw0rd1'
+        new_hostname 'win-workstation'
+      end
+      ```
+
+      **Leave the current domain and re-join the `local` workgroup**
+
+      ```ruby
+      windows_ad_join 'Leave domain' do
+        action :leave
+        workgroup 'local'
+      end
+      ```
+      DOC
 
       property :domain_name, String,
         description: "An optional property to set the FQDN of the Active Directory domain to join if it differs from the resource block's name.",
@@ -45,9 +76,14 @@ class Chef
 
       property :reboot, Symbol,
         equal_to: %i{immediate delayed never request_reboot reboot_now},
-        validation_message: "The reboot property accepts :immediate (reboot as soon as the resource completes), :delayed (reboot once the #{Chef::Dist::PRODUCT} run completes), and :never (Don't reboot)",
-        description: "Controls the system reboot behavior post domain joining. Reboot immediately, after the #{Chef::Dist::PRODUCT} run completes, or never. Note that a reboot is necessary for changes to take effect.",
+        validation_message: "The reboot property accepts :immediate (reboot as soon as the resource completes), :delayed (reboot once the #{ChefUtils::Dist::Infra::PRODUCT} run completes), and :never (Don't reboot)",
+        description: "Controls the system reboot behavior post domain joining. Reboot immediately, after the #{ChefUtils::Dist::Infra::PRODUCT} run completes, or never. Note that a reboot is necessary for changes to take effect.",
         default: :immediate
+
+      property :reboot_delay, Integer,
+        description: "The amount of time (in minutes) to delay a reboot request.",
+        default: 0,
+        introduced: "16.5"
 
       property :new_hostname, String,
         description: "Specifies a new hostname for the computer in the new domain.",
@@ -61,9 +97,7 @@ class Chef
       property :sensitive, [TrueClass, FalseClass],
         default: true, desired_state: false
 
-      action :join do
-        description "Join the Active Directory domain."
-
+      action :join, description: "Join the Active Directory domain" do
         unless on_desired_domain?
           cmd = "$pswd = ConvertTo-SecureString \'#{new_resource.domain_password}\' -AsPlainText -Force;"
           cmd << "$credential = New-Object System.Management.Automation.PSCredential (\"#{sanitize_usename}\",$pswd);"
@@ -73,18 +107,19 @@ class Chef
           cmd << " -Force"
 
           converge_by("join Active Directory domain #{new_resource.domain_name}") do
-            ps_run = powershell_out(cmd)
+            ps_run = powershell_exec(cmd)
             if ps_run.error?
               if sensitive?
                 raise "Failed to join the domain #{new_resource.domain_name}: *suppressed sensitive resource output*"
               else
-                raise "Failed to join the domain #{new_resource.domain_name}: #{ps_run.stderr}"
+                raise "Failed to join the domain #{new_resource.domain_name}: #{ps_run.errors}"
               end
             end
 
             unless new_resource.reboot == :never
               reboot "Reboot to join domain #{new_resource.domain_name}" do
                 action clarify_reboot(new_resource.reboot)
+                delay_mins new_resource.reboot_delay
                 reason "Reboot to join domain #{new_resource.domain_name}"
               end
             end
@@ -92,9 +127,7 @@ class Chef
         end
       end
 
-      action :leave do
-        description "Leave the Active Directory domain."
-
+      action :leave, description: "Leave an Active Directory domain and re-join a workgroup" do
         if joined_to_domain?
           cmd = ""
           cmd << "$pswd = ConvertTo-SecureString \'#{new_resource.domain_password}\' -AsPlainText -Force;"
@@ -106,18 +139,19 @@ class Chef
           cmd << " -Force"
 
           converge_by("leave Active Directory domain #{node_domain}") do
-            ps_run = powershell_out(cmd)
+            ps_run = powershell_exec(cmd)
             if ps_run.error?
               if sensitive?
                 raise "Failed to leave the domain #{node_domain}: *suppressed sensitive resource output*"
               else
-                raise "Failed to leave the domain #{node_domain}: #{ps_run.stderr}"
+                raise "Failed to leave the domain #{node_domain}: #{ps_run.errors}"
               end
             end
 
             unless new_resource.reboot == :never
               reboot "Reboot to leave domain #{new_resource.domain_name}" do
                 action clarify_reboot(new_resource.reboot)
+                delay_mins new_resource.reboot_delay
                 reason "Reboot to leave domain #{new_resource.domain_name}"
               end
             end
@@ -132,10 +166,10 @@ class Chef
         #   workgroup the node is a member of.
         #
         def node_domain
-          node_domain = powershell_out!("(Get-WmiObject Win32_ComputerSystem).Domain")
-          raise "Failed to check if the system is joined to the domain #{new_resource.domain_name}: #{node_domain.stderr}}" if node_domain.error?
+          node_domain = powershell_exec!("(Get-WmiObject Win32_ComputerSystem).Domain")
+          raise "Failed to check if the system is joined to the domain #{new_resource.domain_name}: #{node_domain.errors}}" if node_domain.error?
 
-          node_domain.stdout.downcase.strip
+          node_domain.result.downcase.strip
         end
 
         #
@@ -144,10 +178,10 @@ class Chef
         #   workgroup.
         #
         def node_workgroup
-          node_workgroup = powershell_out!("(Get-WmiObject Win32_ComputerSystem).Workgroup")
+          node_workgroup = powershell_exec!("(Get-WmiObject Win32_ComputerSystem).Workgroup")
           raise "Failed to check if the system is currently a member of a workgroup" if node_workgroup.error?
 
-          node_workgroup.stdout.downcase.strip
+          node_workgroup.result
         end
 
         #
@@ -175,7 +209,7 @@ class Chef
         #   links: https://docs.microsoft.com/en-us/windows/win32/ad/naming-properties#userprincipalname https://tools.ietf.org/html/rfc822
         #   regex: https://rubular.com/r/isAWojpTMKzlnp
         def sanitize_usename
-          if new_resource.domain_user =~ /@/
+          if /@/.match?(new_resource.domain_user)
             new_resource.domain_user
           else
             "#{new_resource.domain_user}@#{new_resource.domain_name}"

@@ -16,37 +16,32 @@
 #
 
 require_relative "../knife"
+require_relative "./config_use"
 
 class Chef
   class Knife
-    class ConfigUseProfile < Knife
+    class ConfigUseProfile < ConfigUse
+
+      # Handle the subclassing (knife doesn't do this :()
+      dependency_loaders.concat(superclass.dependency_loaders)
+
       banner "knife config use-profile PROFILE"
-
-      deps do
-        require "fileutils" unless defined?(FileUtils)
-      end
-
-      # Disable normal config loading since this shouldn't fail if the profile
-      # doesn't exist of the config is otherwise corrupted.
-      def configure_chef
-        apply_computed_config
-      end
+      category "deprecated"
 
       def run
+        Chef::Log.warn("knife config use-profile has been deprecated in favor of knife config use. This will be removed in the major release version!")
+
+        credentials_data = self.class.config_loader.parse_credentials_file
         context_file = ChefConfig::PathHelper.home(".chef", "context").freeze
         profile = @name_args[0]&.strip
-        if profile && !profile.empty?
-          # Ensure the .chef/ folder exists.
-          FileUtils.mkdir_p(File.dirname(context_file))
-          IO.write(context_file, "#{profile}\n")
-          ui.msg("Set default profile to #{profile}")
-        else
+        if profile.nil? || profile.empty?
           show_usage
           ui.fatal("You must specify a profile")
           exit 1
         end
-      end
 
+        super
+      end
     end
   end
 end

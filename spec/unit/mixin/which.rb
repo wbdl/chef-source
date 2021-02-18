@@ -93,7 +93,7 @@ describe Chef::Mixin::Which do
       end
 
       test_which("arrays with blocks", "foo1", "foo2", finds: "/dir2/foo1", others: [ "/dir1/foo2" ]) do |f|
-        raise "bad arg to block" unless f == "/dir2/foo1" || f == "/dir1/foo2"
+        raise "bad arg to block" unless ["/dir2/foo1", "/dir1/foo2"].include?(f)
 
         true
       end
@@ -157,6 +157,14 @@ describe Chef::Mixin::Which do
       test_where("does not finds foo1 and foo2 if they exist and the block is false", "foo1", "foo2", others: [ "/dir1/foo2", "/dir2/foo2" ]) do
         false
       end
+    end
+  end
+
+  describe "useful non-stubbed tests" do
+    it "works even when the PATH is nuked via adding default_paths", unix_only: true do
+      old_path = ENV["PATH"]
+      expect(test.which("ls")).to be_truthy
+      ENV["PATH"] = old_path
     end
   end
 end

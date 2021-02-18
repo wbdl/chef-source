@@ -30,9 +30,6 @@ require "forwardable" unless defined?(Forwardable)
 
 class Chef
   class Provider
-    require_relative "mixin/why_run"
-    require_relative "mixin/provides"
-
     attr_accessor :new_resource
     attr_accessor :current_resource
     attr_accessor :after_resource
@@ -91,7 +88,7 @@ class Chef
     def self.use(partial)
       dirname = ::File.dirname(partial)
       basename = ::File.basename(partial, ".rb")
-      basename = basename[1..-1] if basename.start_with?("_")
+      basename = basename[1..] if basename.start_with?("_")
       class_eval IO.read(::File.expand_path("#{dirname}/_#{basename}.rb", ::File.dirname(caller_locations.first.absolute_path)))
     end
 
@@ -152,7 +149,7 @@ class Chef
       new_resource.cookbook_name
     end
 
-    # hook that subclasses can use to do lazy validation for where properties aren't flexibile enough
+    # hook that subclasses can use to do lazy validation for where properties aren't flexible enough
     def check_resource_semantics!; end
 
     # a simple placeholder method that will be called / raise if a resource tries to
@@ -167,7 +164,7 @@ class Chef
 
     def load_after_resource
       # This is a backwards compatible hack, custom resources properly wire up a new after_resource
-      # via load_current_value.  It is acceptible for old style resources that cannot be easily made
+      # via load_current_value.  It is acceptable for old style resources that cannot be easily made
       # into custom resources to override this method and provide a proper after_resource.
       @after_resource = @new_resource
     end
@@ -190,7 +187,7 @@ class Chef
     def run_action(action = nil)
       @action = action unless action.nil?
 
-      # hook that subclasses can use to do lazy validation for where properties aren't flexibile enough
+      # hook that subclasses can use to do lazy validation for where properties aren't flexible enough
       check_resource_semantics!
 
       # force the validation of required properties
@@ -438,7 +435,7 @@ class Chef
       # this block cannot interact with resources outside, e.g.,
       # manipulating notifies.
 
-      converge_by ("evaluate block and run any associated actions") do
+      converge_by("evaluate block and run any associated actions") do
         saved_run_context = run_context
         begin
           @run_context = run_context.create_child
@@ -455,6 +452,5 @@ end
 
 # Requiring things at the bottom breaks cycles
 require_relative "chef_class"
-require_relative "mixin/why_run"
 require_relative "resource_collection"
 require_relative "runner"

@@ -18,7 +18,6 @@
 
 require_relative "../provider"
 require_relative "../mixin/which"
-require_relative "../mixin/shell_out"
 require_relative "../resource/file"
 require_relative "../resource/file/verification/systemd_unit"
 require "iniparse"
@@ -28,7 +27,6 @@ class Chef
   class Provider
     class SystemdUnit < Chef::Provider
       include Chef::Mixin::Which
-      include Chef::Mixin::ShellOut
 
       provides :systemd_unit
 
@@ -54,6 +52,26 @@ class Chef
         requirements.assert(:create) do |a|
           a.assertion { IniParse.parse(new_resource.to_ini) }
           a.failure_message "Unit content is not valid INI text"
+        end
+      end
+
+      def systemd_unit_status
+        @systemd_unit_status ||= begin
+          # Collect all the status information for a unit and return it at once
+          # This may fail if we are managing a template unit (e.g. with '@'), in which case
+          # we just ignore the error because unit status is irrelevant in that case
+          s = shell_out(*systemctl_cmd, "show", "-p", "UnitFileState", "-p", "ActiveState", new_resource.unit_name, systemctl_opts)
+          # e.g. /bin/systemctl --system show -p UnitFileState -p ActiveState syslog.socket
+          # Returns something like:
+          # ActiveState=inactive
+          # UnitFileState=static
+          status = {}
+          s.stdout.each_line do |line|
+            k, v = line.strip.split("=")
+            status[k] = v
+          end
+
+          status
         end
       end
 
@@ -203,23 +221,29 @@ class Chef
       end
 
       def active?
-        systemctl_execute("is-active", new_resource.unit_name).exitstatus == 0
+        # Note: "activating" is not active (as with type=notify or a oneshot)
+        systemd_unit_status["ActiveState"] == "active"
       end
 
       def enabled?
-        systemctl_execute("is-enabled", new_resource.unit_name).exitstatus == 0
+        # See https://github.com/systemd/systemd/blob/master/src/systemctl/systemctl-is-enabled.c
+        # Note: enabled-runtime is excluded because this is volatile, and the state of enabled-runtime
+        # specifically means that the service is not enabled
+        %w{enabled static generated alias indirect}.include?(systemd_unit_status["UnitFileState"])
       end
 
       def masked?
-        systemctl_execute("status", new_resource.unit_name).stdout.include?("masked")
+        # Note: masked-runtime is excluded, because runtime is volatile, and
+        # because masked-runtime is not masked.
+        systemd_unit_status["UnitFileState"] == "masked"
       end
 
       def static?
-        systemctl_execute("is-enabled", new_resource.unit_name).stdout.include?("static")
+        systemd_unit_status["UnitFileState"] == "static"
       end
 
       def indirect?
-        systemctl_execute("is-enabled", new_resource.unit_name).stdout.include?("indirect")
+        systemd_unit_status["UnitFileState"] == "indirect"
       end
 
       private

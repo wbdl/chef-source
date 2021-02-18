@@ -1,4 +1,3 @@
-# encoding: UTF-8
 #
 # Author:: Kaustubh Deorukhkar (<kaustubh@clogeny.com>)
 # Copyright:: Copyright (c) Chef Software Inc.
@@ -18,7 +17,6 @@
 #
 
 require "spec_helper"
-require "functional/resource/base"
 require "chef/mixin/shell_out"
 
 describe Chef::Resource::Cron, :requires_root, :unix_only do
@@ -28,7 +26,7 @@ describe Chef::Resource::Cron, :requires_root, :unix_only do
   # Platform specific validation routines.
   def cron_should_exists(cron_name, command)
     case ohai[:platform]
-    when "aix", "opensolaris", "solaris2", "omnios"
+    when "aix", "solaris2", "omnios"
       expect(shell_out("crontab -l #{new_resource.user} | grep \"#{cron_name}\"").exitstatus).to eq(0)
       expect(shell_out("crontab -l #{new_resource.user} | grep \"#{cron_name}\"").stdout.lines.to_a.size).to eq(1)
       expect(shell_out("crontab -l #{new_resource.user} | grep \"#{command}\"").exitstatus).to eq(0)
@@ -43,7 +41,7 @@ describe Chef::Resource::Cron, :requires_root, :unix_only do
 
   def cron_should_not_exists(cron_name)
     case ohai[:platform]
-    when "aix", "opensolaris", "solaris2", "omnios"
+    when "aix", "solaris2", "omnios"
       expect(shell_out("crontab -l #{new_resource.user} | grep \"#{cron_name}\"").exitstatus).to eq(1)
       expect(shell_out("crontab -l #{new_resource.user} | grep \"#{new_resource.command}\"").stdout.lines.to_a.size).to eq(0)
     else
@@ -53,6 +51,16 @@ describe Chef::Resource::Cron, :requires_root, :unix_only do
   end
 
   # Actual tests
+
+  let(:run_context) do
+    node = Chef::Node.new
+    node.default[:platform] = ohai[:platform]
+    node.default[:platform_version] = ohai[:platform_version]
+    node.default[:os] = ohai[:os]
+    events = Chef::EventDispatch::Dispatcher.new
+    Chef::RunContext.new(node, {}, events)
+  end
+
   let(:new_resource) do
     new_resource = Chef::Resource::Cron.new("Chef functional test cron", run_context)
     new_resource.user "root"
@@ -80,6 +88,16 @@ describe Chef::Resource::Cron, :requires_root, :unix_only do
       5.times { new_resource.run_action(:create) }
       cron_should_exists(new_resource.name, new_resource.command)
     end
+
+    # Test cron for day of week
+    weekdays = { Mon: 1, tuesday: 2, '3': 3, 'thursday': 4, 'Fri': 5, 6 => 6 }
+    weekdays.each do |key, value|
+      it "should create crontab entry and set #{value} for #{key} as weekday" do
+        new_resource.weekday key
+        expect { new_resource.run_action(:create) }.not_to raise_error
+        cron_should_exists(new_resource.name, new_resource.command)
+      end
+    end
   end
 
   describe "delete action" do
@@ -95,7 +113,7 @@ describe Chef::Resource::Cron, :requires_root, :unix_only do
     end
   end
 
-  exclude_solaris = %w{solaris opensolaris solaris2 omnios}.include?(ohai[:platform])
+  exclude_solaris = %w{solaris solaris2 omnios}.include?(ohai[:platform])
   describe "create action with various attributes", external: exclude_solaris do
     def create_and_validate_with_property(resource, attribute, value)
       if ohai[:platform] == "aix"

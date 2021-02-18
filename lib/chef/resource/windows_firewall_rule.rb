@@ -19,17 +19,18 @@
 # limitations under the License.
 #
 
-require_relative "../json_compat"
-
 class Chef
   class Resource
     class WindowsFirewallRule < Chef::Resource
+      unified_mode true
+
       provides :windows_firewall_rule
 
-      description "Use the windows_firewall_rule resource to create, change or remove Windows firewall rules."
+      description "Use the **windows_firewall_rule** resource to create, change or remove Windows firewall rules."
       introduced "14.7"
       examples <<~DOC
-      Allowing port 80 access
+      **Allowing port 80 access**:
+
       ```ruby
       windows_firewall_rule 'IIS' do
         local_port '80'
@@ -38,7 +39,8 @@ class Chef
       end
       ```
 
-      Allow protocol ICMPv6 with ICMP Type
+      **Allow protocol ICMPv6 with ICMP Type**:
+
       ```ruby
       windows_firewall_rule 'CoreNet-Rule' do
         rule_name 'CoreNet-ICMP6-LR2-In'
@@ -49,7 +51,8 @@ class Chef
       end
       ```
 
-      Blocking WinRM over HTTP on a particular IP
+      **Blocking WinRM over HTTP on a particular IP**:
+
       ```ruby
       windows_firewall_rule 'Disable WinRM over HTTP' do
         local_port '5985'
@@ -59,7 +62,8 @@ class Chef
       end
       ```
 
-      Deleting an existing rule
+      **Deleting an existing rule**
+
       ```ruby
       windows_firewall_rule 'Remove the SSH rule' do
         rule_name 'ssh'
@@ -89,7 +93,7 @@ class Chef
         description: "The local address the firewall rule applies to."
 
       property :local_port, [String, Integer, Array],
-               # split various formats of comma separated lists and provide a sorted array of strings to match PS output
+        # split various formats of comma separated lists and provide a sorted array of strings to match PS output
         coerce: proc { |d| d.is_a?(String) ? d.split(/\s*,\s*/).sort : Array(d).sort.map(&:to_s) },
         description: "The local port the firewall rule applies to."
 
@@ -97,7 +101,7 @@ class Chef
         description: "The remote address the firewall rule applies to."
 
       property :remote_port, [String, Integer, Array],
-               # split various formats of comma separated lists and provide a sorted array of strings to match PS output
+        # split various formats of comma separated lists and provide a sorted array of strings to match PS output
         coerce: proc { |d| d.is_a?(String) ? d.split(/\s*,\s*/).sort : Array(d).sort.map(&:to_s) },
         description: "The remote port the firewall rule applies to."
 
@@ -153,11 +157,11 @@ class Chef
 
       load_current_value do
         load_state_cmd = load_firewall_state(rule_name)
-        output = powershell_out(load_state_cmd)
-        if output.stdout.empty?
+        output = powershell_exec(load_state_cmd)
+        if output.result.empty?
           current_value_does_not_exist!
         else
-          state = Chef::JSONCompat.from_json(output.stdout)
+          state = output.result
         end
 
         # Need to reverse `$rule.Profile.ToString()` in powershell command
@@ -188,17 +192,17 @@ class Chef
             :remote_port, :direction, :protocol, :icmp_type, :firewall_action, :profile, :program, :service,
             :interface_type, :enabled do
               cmd = firewall_command("Set")
-              powershell_out!(cmd)
+              powershell_exec!(cmd)
             end
           converge_if_changed :group do
-            powershell_out!("Remove-NetFirewallRule -Name '#{new_resource.rule_name}'")
+            powershell_exec!("Remove-NetFirewallRule -Name '#{new_resource.rule_name}'")
             cmd = firewall_command("New")
-            powershell_out!(cmd)
+            powershell_exec!(cmd)
           end
         else
           converge_by("create firewall rule #{new_resource.rule_name}") do
             cmd = firewall_command("New")
-            powershell_out!(cmd)
+            powershell_exec!(cmd)
           end
         end
       end
@@ -208,7 +212,7 @@ class Chef
 
         if current_resource
           converge_by("delete firewall rule #{new_resource.rule_name}") do
-            powershell_out!("Remove-NetFirewallRule -Name '#{new_resource.rule_name}'")
+            powershell_exec!("Remove-NetFirewallRule -Name '#{new_resource.rule_name}'")
           end
         else
           Chef::Log.info("Firewall rule \"#{new_resource.rule_name}\" doesn't exist. Skipping.")
@@ -269,11 +273,11 @@ class Chef
           requirements.assert(:create) do |a|
             a.assertion do
               if new_resource.icmp_type.is_a?(Integer)
-                (0..255).include?(new_resource.icmp_type)
+                (0..255).cover?(new_resource.icmp_type)
               elsif new_resource.icmp_type.is_a?(String) && !new_resource.icmp_type.include?(":") && new_resource.protocol.start_with?("ICMP")
-                (0..255).include?(new_resource.icmp_type.to_i)
+                (0..255).cover?(new_resource.icmp_type.to_i)
               elsif new_resource.icmp_type.is_a?(String) && new_resource.icmp_type.include?(":") && new_resource.protocol.start_with?("ICMP")
-                new_resource.icmp_type.split(":").all? { |type| (0..255).include?(type.to_i) }
+                new_resource.icmp_type.split(":").all? { |type| (0..255).cover?(type.to_i) }
               else
                 true
               end
@@ -314,7 +318,7 @@ class Chef
             service = $serviceFilter.Service
             interface_type = $interfaceTypeFilter.InterfaceType.ToString()
             enabled = [bool]::Parse($rule.Enabled.ToString())
-          }) | ConvertTo-Json
+          })
         EOH
       end
     end

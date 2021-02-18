@@ -20,7 +20,7 @@ require_relative "../provider"
 require_relative "../resource/file"
 require_relative "../resource/cookbook_file"
 require_relative "../resource/macosx_service"
-require "plist"
+autoload :Plist, "plist"
 require "forwardable" unless defined?(Forwardable)
 
 class Chef
@@ -29,22 +29,10 @@ class Chef
       extend Forwardable
       provides :launchd, os: "darwin"
 
-      def_delegators :new_resource, *%i{
-        backup
-        cookbook
-        group
-        label
-        mode
-        owner
-        path
-        source
-        session_type
-        type
-      }
+      def_delegators :new_resource, :backup, :cookbook, :group, :label, :mode, :owner, :source, :session_type, :type
 
       def load_current_resource
         current_resource = Chef::Resource::Launchd.new(new_resource.name)
-        @path = path ? path : gen_path_from_type
       end
 
       def gen_path_from_type
@@ -64,23 +52,23 @@ class Chef
       end
 
       action :delete do
-        # If you delete a service you want to make sure its not loaded or
-        # the service will be in memory and you wont be able to stop it.
-        if ::File.exists?(@path)
+        if ::File.exists?(path)
           manage_service(:disable)
         end
         manage_plist(:delete)
       end
 
       action :enable do
-        if manage_plist(:create)
-          manage_service(:restart)
-        else
-          manage_service(:enable)
+        manage_service(:nothing)
+        manage_plist(:create) do
+          notifies :restart, "macosx_service[#{label}]", :immediately
         end
+        manage_service(:enable)
       end
 
       action :disable do
+        return unless ::File.exist?(path)
+
         manage_service(:disable)
       end
 
@@ -88,39 +76,32 @@ class Chef
         manage_service(:restart)
       end
 
-      def manage_plist(action)
+      def manage_plist(action, &block)
         if source
-          cookbook_file @path do
-            cookbook_name = cookbook if cookbook
-            name(@path) if @path
-            backup(backup) if backup
-            group(group) if group
-            mode(mode) if mode
-            owner(owner) if owner
-            source(source) if source
+          cookbook_file path do
+            cookbook_name = new_resource.cookbook if new_resource.cookbook
+            copy_properties_from(new_resource, :backup, :group, :mode, :owner, :source)
             action(action)
             only_if { manage_agent?(action) }
+            instance_eval(&block) if block_given?
           end
         else
-          file @path do
-            name(@path) if @path
-            backup(backup) if backup
-            content(content) if content?
-            group(group) if group
-            mode(mode) if mode
-            owner(owner) if owner
+          file path do
+            copy_properties_from(new_resource, :backup, :group, :mode, :owner)
+            content(file_content) if file_content?
             action(action)
             only_if { manage_agent?(action) }
+            instance_eval(&block) if block_given?
           end
         end
       end
 
       def manage_service(action)
+        plist_path = path
         macosx_service label do
-          name(label) if label
-          service_name(label) if label
-          plist(@path) if @path
-          session_type(session_type) if session_type
+          service_name(new_resource.label) if new_resource.label
+          plist(plist_path) if plist_path
+          copy_properties_from(new_resource, :session_type)
           action(action)
           only_if { manage_agent?(action) }
         end
@@ -155,11 +136,11 @@ class Chef
         end
       end
 
-      def content?
-        !!content
+      def file_content?
+        !!file_content
       end
 
-      def content
+      def file_content
         plist_hash = new_resource.plist_hash || gen_hash
         ::Plist::Emit.dump(plist_hash) unless plist_hash.nil?
       end
@@ -214,6 +195,11 @@ class Chef
         }.each_with_object({}) do |(key, val), memo|
           memo[val] = new_resource.send(key) if new_resource.send(key)
         end
+      end
+
+      # @api private
+      def path
+        @path ||= new_resource.path || gen_path_from_type
       end
     end
   end

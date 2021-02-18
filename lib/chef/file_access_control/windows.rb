@@ -33,7 +33,7 @@ class Chef
       module ClassMethods
         # We want to mix these in as class methods
         def writable?(path)
-          ::File.exists?(path) && Chef::ReservedNames::Win32::File.file_access_check(
+          ::File.exist?(path) && Chef::ReservedNames::Win32::File.file_access_check(
             path, Chef::ReservedNames::Win32::API::Security::FILE_GENERIC_WRITE
           )
         end
@@ -96,7 +96,7 @@ class Chef
             self_ace.mask = securable_object.predict_rights_mask(target_ace.mask)
             new_target_acl << self_ace
           end
-          # As there is no inheritence needed in case of WRITE permissions.
+          # As there is no inheritance needed in case of WRITE permissions.
           if target_ace.mask != Chef::ReservedNames::Win32::API::Security::WRITE && target_ace.flags & (CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE) != 0
             children_ace = target_ace.dup
             children_ace.flags |= INHERIT_ONLY_ACE
@@ -112,7 +112,11 @@ class Chef
 
       def get_sid(value)
         if value.is_a?(String)
-          SID.from_account(value)
+          begin
+            Security.convert_string_sid_to_sid(value)
+          rescue Chef::Exceptions::Win32APIError
+            SID.from_account(value)
+          end
         elsif value.is_a?(SID)
           value
         else
@@ -132,7 +136,7 @@ class Chef
       end
 
       def should_update_dacl?
-        return true unless ::File.exists?(file) || ::File.symlink?(file)
+        return true unless ::File.exist?(file) || ::File.symlink?(file)
 
         dacl = target_dacl
         existing_dacl = existing_descriptor.dacl
@@ -166,7 +170,7 @@ class Chef
       end
 
       def should_update_group?
-        return true unless ::File.exists?(file) || ::File.symlink?(file)
+        return true unless ::File.exist?(file) || ::File.symlink?(file)
 
         (group = target_group) && (group != existing_descriptor.group)
       end
@@ -186,7 +190,7 @@ class Chef
       end
 
       def should_update_owner?
-        return true unless ::File.exists?(file) || ::File.symlink?(file)
+        return true unless ::File.exist?(file) || ::File.symlink?(file)
 
         (owner = target_owner) && (owner != existing_descriptor.owner)
       end
@@ -242,7 +246,7 @@ class Chef
         flags = 0
 
         #
-        # Configure child inheritence only if the resource is some
+        # Configure child inheritance only if the resource is some
         # type of a directory.
         #
         if resource.is_a? Chef::Resource::Directory
@@ -251,10 +255,7 @@ class Chef
             flags |= CONTAINER_INHERIT_ACE
           when :objects_only
             flags |= OBJECT_INHERIT_ACE
-          when true
-            flags |= CONTAINER_INHERIT_ACE
-            flags |= OBJECT_INHERIT_ACE
-          when nil
+          when true, nil
             flags |= CONTAINER_INHERIT_ACE
             flags |= OBJECT_INHERIT_ACE
           end

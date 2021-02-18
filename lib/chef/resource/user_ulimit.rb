@@ -26,32 +26,34 @@ class Chef
 
       provides :user_ulimit
 
+      description "Use the **user_ulimit** resource to create individual ulimit files that are installed into the `/etc/security/limits.d/` directory."
       introduced "16.0"
-      description "Use the user_ulimit resource to create individual ulimit files that are installed into the `/etc/security/limits.d/` directory."
       examples <<~DOC
-        set filehandle limit for the tomcat user
-        ```ruby
-        user_ulimit 'tomcat' do
-          filehandle_limit 8192
-        end
-        ```
+      **Set filehandle limit for the tomcat user**:
 
-        specify a username that differs from the name given to the resource block
-        ```ruby
-        user_ulimit 'Bump filehandle limits for tomcat user' do
-          username 'tomcat'
-          filehandle_limit 8192
-        end
-        ```
+      ```ruby
+      user_ulimit 'tomcat' do
+        filehandle_limit 8192
+      end
+      ```
 
-        specify a non-default filename
-        set filehandle limit for the tomcat user
-        ```ruby
-        user_ulimit 'tomcat' do
-          filehandle_limit 8192
-          filename 'tomcat_filehandle_limits.conf'
-        end
-        ```
+      **Specify a username that differs from the name given to the resource block**:
+
+      ```ruby
+      user_ulimit 'Bump filehandle limits for tomcat user' do
+        username 'tomcat'
+        filehandle_limit 8192
+      end
+      ```
+
+      **Set filehandle limit for the tomcat user with a non-default filename**:
+
+      ```ruby
+      user_ulimit 'tomcat' do
+        filehandle_limit 8192
+        filename 'tomcat_filehandle_limits.conf'
+      end
+      ```
       DOC
 
       property :username, String, name_property: true
@@ -76,9 +78,9 @@ class Chef
                coerce: proc { |m| m.end_with?(".conf") ? m : m + ".conf" },
                default: lazy { |r| r.username == "*" ? "00_all_limits.conf" : "#{r.username}_limits.conf" }
 
-      action :create do
+      action :create, description: "Create a ulimit configuration file" do
         template "/etc/security/limits.d/#{new_resource.filename}" do
-          source ::File.expand_path("../support/ulimit.erb", __FILE__)
+          source ::File.expand_path("support/ulimit.erb", __dir__)
           local true
           mode "0644"
           variables(
@@ -104,7 +106,7 @@ class Chef
         end
       end
 
-      action :delete do
+      action :delete, description: "Delete an existing ulimit configuration file" do
         file "/etc/security/limits.d/#{new_resource.filename}" do
           action :delete
         end

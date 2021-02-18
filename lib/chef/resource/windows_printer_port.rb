@@ -22,18 +22,50 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsPrinterPort < Chef::Resource
-      require "resolv"
+      unified_mode true
+
+      autoload :Resolv, "resolv"
 
       provides(:windows_printer_port) { true }
 
-      description "Use the windows_printer_port resource to create and delete TCP/IPv4 printer ports on Windows."
+      description "Use the **windows_printer_port** resource to create and delete TCP/IPv4 printer ports on Windows."
       introduced "14.0"
+      examples <<~DOC
+      **Delete a printer port**
+
+      ```ruby
+      windows_printer_port '10.4.64.37' do
+        action :delete
+      end
+      ```
+
+      **Delete a port with a custom port_name**
+
+      ```ruby
+      windows_printer_port '10.4.64.38' do
+        port_name 'My awesome port'
+        action :delete
+      end
+      ```
+
+      **Create a port with more options**
+
+      ```ruby
+      windows_printer_port '10.4.64.39' do
+        port_name 'My awesome port'
+        snmp_enabled true
+        port_protocol 2
+      end
+      ```
+      DOC
 
       property :ipv4_address, String,
         name_property: true,
-        regex: Resolv::IPv4::Regex,
-        validation_message: "The ipv4_address property must be in the format of WWW.XXX.YYY.ZZZ!",
-        description: "An optional property for the IPv4 address of the printer if it differs from the resource block's name."
+        description: "An optional property for the IPv4 address of the printer if it differs from the resource block's name.",
+        callbacks: {
+          "The ipv4_address property must be in the format of WWW.XXX.YYY.ZZZ!" =>
+            proc { |v| v.match(Resolv::IPv4::Regex) },
+        }
 
       property :port_name, String,
         description: "The port name."
@@ -54,30 +86,19 @@ class Chef
         validation_message: "port_protocol must be either 1 for RAW or 2 for LPR!",
         default: 1, equal_to: [1, 2]
 
-      property :exists, [TrueClass, FalseClass],
-        skip_docs: true
-
       PORTS_REG_KEY = 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Print\Monitors\Standard TCP/IP Port\Ports\\'.freeze unless defined?(PORTS_REG_KEY)
-
-      def port_exists?(name)
-        port_reg_key = PORTS_REG_KEY + name
-
-        logger.trace "Checking to see if this reg key exists: '#{port_reg_key}'"
-        registry_key_exists?(port_reg_key)
-      end
 
       # @todo Set @current_resource port properties from registry
       load_current_value do |desired|
         name desired.name
         ipv4_address desired.ipv4_address
         port_name desired.port_name || "IP_#{desired.ipv4_address}"
-        exists port_exists?(desired.port_name || "IP_#{desired.ipv4_address}")
       end
 
       action :create do
         description "Create the new printer port if it does not already exist."
 
-        if current_resource.exists
+        if port_exists?
           Chef::Log.info "#{@new_resource} already exists - nothing to do."
         else
           converge_by("Create #{@new_resource}") do
@@ -89,7 +110,7 @@ class Chef
       action :delete do
         description "Delete an existing printer port."
 
-        if current_resource.exists
+        if port_exists?
           converge_by("Delete #{@new_resource}") do
             delete_printer_port
           end
@@ -99,6 +120,16 @@ class Chef
       end
 
       action_class do
+        private
+
+        def port_exists?
+          name = new_resource.port_name || "IP_#{new_resource.ipv4_address}"
+          port_reg_key = PORTS_REG_KEY + name
+
+          logger.trace "Checking to see if this reg key exists: '#{port_reg_key}'"
+          registry_key_exists?(port_reg_key)
+        end
+
         def create_printer_port
           port_name = new_resource.port_name || "IP_#{new_resource.ipv4_address}"
 

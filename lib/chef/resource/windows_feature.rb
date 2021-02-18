@@ -21,10 +21,67 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsFeature < Chef::Resource
+      unified_mode true
+
       provides(:windows_feature) { true }
 
-      description "Use the windows_feature resource to add, remove or entirely delete Windows features and roles. This resource calls the 'windows_feature_dism' or 'windows_feature_powershell' resources depending on the specified installation method, and defaults to DISM, which is available on both Workstation and Server editions of Windows."
+      description "Use the **windows_feature** resource to add, remove or entirely delete Windows features and roles. This resource calls the 'windows_feature_dism' or 'windows_feature_powershell' resources depending on the specified installation method, and defaults to DISM, which is available on both Workstation and Server editions of Windows."
       introduced "14.0"
+      examples <<~DOC
+      **Install the DHCP Server feature**:
+
+      ```ruby
+      windows_feature 'DHCPServer' do
+        action :install
+      end
+      ```
+
+      **Install the .Net 3.5.1 feature using repository files on DVD**:
+
+      ```ruby
+      windows_feature "NetFx3" do
+        action :install
+        source 'd:\\sources\\sxs'
+      end
+      ```
+
+      **Remove Telnet Server and Client features**:
+
+      ```ruby
+      windows_feature %w(TelnetServer TelnetClient) do
+        action :remove
+      end
+      ```
+
+      **Add the SMTP Server feature using the PowerShell provider**:
+
+      ```ruby
+      windows_feature 'smtp-server' do
+        action :install
+        all true
+        install_method :windows_feature_powershell
+      end
+      ```
+
+      **Install multiple features using one resource with the PowerShell provider**:
+
+      ```ruby
+      windows_feature %w(Web-Asp-Net45 Web-Net-Ext45) do
+        action :install
+        install_method :windows_feature_powershell
+      end
+      ```
+
+      **Install the Network Policy and Access Service feature, including the management tools**:
+
+      ```ruby
+      windows_feature 'NPAS' do
+        action :install
+        management_tools true
+        install_method :windows_feature_powershell
+      end
+      ```
+      DOC
 
       property :feature_name, [Array, String],
         description: "The name of the feature(s) or role(s) to install if they differ from the resource block's name. The same feature may have different names depending on the underlying installation method being used (ie DHCPServer vs DHCP; DNS-Server-Full-Role vs DNS).",
@@ -42,7 +99,7 @@ class Chef
         default: false
 
       property :install_method, Symbol,
-        description: "The underlying installation method to use for feature installation. Specify ':windows_feature_dism' for DISM or ':windows_feature_powershell' for PowerShell.",
+        description: "The underlying installation method to use for feature installation. Specify `:windows_feature_dism` for DISM or `:windows_feature_powershell` for PowerShell.",
         equal_to: %i{windows_feature_dism windows_feature_powershell windows_feature_servermanagercmd},
         default: :windows_feature_dism
 
@@ -70,6 +127,8 @@ class Chef
       end
 
       action_class do
+        private
+
         # call the appropriate windows_feature resource based on the specified subresource
         # @return [void]
         def run_default_subresource(desired_action)

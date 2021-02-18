@@ -14,15 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+autoload :OpenSSL, "openssl"
 
 class Chef
   module Mixin
     # various helpers for use with openssl. Currently used by the openssl_* resources
     module OpenSSLHelper
-      def self.included(_base)
-        require "openssl" unless defined?(::OpenSSL)
-      end
-
       # determine the key filename from the cert filename
       # @param [String] cert_filename the path to the certfile
       # @return [String] the path to the keyfile
@@ -158,7 +155,7 @@ class Chef
       # @return [OpenSSL::PKey::DH]
       def gen_ec_priv_key(curve)
         raise TypeError, "curve must be a string" unless curve.is_a?(String)
-        raise ArgumentError, "Specified curve is not available on this system" unless curve == "prime256v1" || curve == "secp384r1" || curve == "secp521r1"
+        raise ArgumentError, "Specified curve is not available on this system" unless %w{prime256v1 secp384r1 secp521r1}.include?(curve)
 
         ::OpenSSL::PKey::EC.new(curve).generate_key
       end
@@ -218,7 +215,7 @@ class Chef
         # Chef 12 backward compatibility
         ::OpenSSL::PKey::EC.send(:alias_method, :private?, :private_key?)
 
-        request.sign(key, ::OpenSSL::Digest::SHA256.new)
+        request.sign(key, ::OpenSSL::Digest.new("SHA256"))
         request
       end
 
@@ -282,14 +279,16 @@ class Chef
           ef.issuer_certificate = info["issuer"]
         end
         ef.subject_certificate = cert
-        ef.config = ::OpenSSL::Config.load(::OpenSSL::Config::DEFAULT_CONFIG_FILE)
+        if openssl_config = __openssl_config
+          ef.config = openssl_config
+        end
 
         cert.extensions = extension
         cert.add_extension ef.create_extension("subjectKeyIdentifier", "hash")
         cert.add_extension ef.create_extension("authorityKeyIdentifier",
           "keyid:always,issuer:always")
 
-        cert.sign(key, ::OpenSSL::Digest::SHA256.new)
+        cert.sign(key, ::OpenSSL::Digest.new("SHA256"))
         cert
       end
 
@@ -313,13 +312,15 @@ class Chef
         crl.last_update = Time.now
         crl.next_update = Time.now + 3600 * 24 * info["validity"]
 
-        ef.config = ::OpenSSL::Config.load(::OpenSSL::Config::DEFAULT_CONFIG_FILE)
+        if openssl_config = __openssl_config
+          ef.config = openssl_config
+        end
         ef.issuer_certificate = info["issuer"]
 
         crl.add_extension ::OpenSSL::X509::Extension.new("crlNumber", ::OpenSSL::ASN1::Integer(1))
         crl.add_extension ef.create_extension("authorityKeyIdentifier",
           "keyid:always,issuer:always")
-        crl.sign(ca_private_key, ::OpenSSL::Digest::SHA256.new)
+        crl.sign(ca_private_key, ::OpenSSL::Digest.new("SHA256"))
         crl
       end
 
@@ -369,8 +370,7 @@ class Chef
         revoked.add_extension(ext)
         crl.add_revoked(revoked)
 
-        crl = renew_x509_crl(crl, ca_private_key, info)
-        crl
+        renew_x509_crl(crl, ca_private_key, info)
       end
 
       # renew a X509 crl given
@@ -391,14 +391,16 @@ class Chef
         crl.next_update = crl.last_update + 3600 * 24 * info["validity"]
 
         ef = ::OpenSSL::X509::ExtensionFactory.new
-        ef.config = ::OpenSSL::Config.load(::OpenSSL::Config::DEFAULT_CONFIG_FILE)
+        if openssl_config = __openssl_config
+          ef.config = openssl_config
+        end
         ef.issuer_certificate = info["issuer"]
 
         crl.extensions = [ ::OpenSSL::X509::Extension.new("crlNumber",
           ::OpenSSL::ASN1::Integer(get_next_crl_number(crl)))]
         crl.add_extension ef.create_extension("authorityKeyIdentifier",
           "keyid:always,issuer:always")
-        crl.sign(ca_private_key, ::OpenSSL::Digest::SHA256.new)
+        crl.sign(ca_private_key, ::OpenSSL::Digest.new("SHA256"))
         crl
       end
 
@@ -407,7 +409,7 @@ class Chef
       # @param [string] cert_file path of the cert file or cert content
       # @param [integer] renew_before_expiry number of days before expiration
       # @return [true, false]
-      def cert_need_renewall?(cert_file, renew_before_expiry)
+      def cert_need_renewal?(cert_file, renew_before_expiry)
         resp = true
         cert_content = ::File.exist?(cert_file) ? File.read(cert_file) : cert_file
         begin
@@ -421,6 +423,25 @@ class Chef
         end
 
         resp
+      end
+
+      alias_method :cert_need_renewall?, :cert_need_renewal?
+
+      private
+
+      def __openssl_config
+        path = if File.exist?(::OpenSSL::Config::DEFAULT_CONFIG_FILE)
+                 OpenSSL::Config::DEFAULT_CONFIG_FILE
+               else
+                 Dir[File.join(RbConfig::CONFIG["prefix"], "**", "openssl.cnf")].first
+               end
+
+        if File.exist?(path)
+          ::OpenSSL::Config.load(path)
+        else
+          Chef::Log.warn("Couldn't find OpenSSL config file")
+          nil
+        end
       end
     end
   end

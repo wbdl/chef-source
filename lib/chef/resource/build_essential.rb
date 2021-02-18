@@ -15,7 +15,6 @@
 #
 
 require_relative "../resource"
-require "plist"
 
 class Chef
   class Resource
@@ -24,22 +23,25 @@ class Chef
 
       provides(:build_essential) { true }
 
-      description "Use the build_essential resource to install the packages required for compiling C software from source."
+      description "Use the **build_essential** resource to install the packages required for compiling C software from source."
       introduced "14.0"
       examples <<~DOC
-        Install compilation packages
+        **Install compilation packages**:
+
         ```ruby
         build_essential
         ```
 
-        Install compilation packages during the compilation phase
+        **Install compilation packages during the compilation phase**:
+
         ```ruby
         build_essential 'Install compilation tools' do
           compile_time true
         end
         ```
 
-        Upgrade compilation packages on macOS systems
+        **Upgrade compilation packages on macOS systems**:
+
         ```ruby
         build_essential 'Install compilation tools' do
           action :upgrade
@@ -52,12 +54,10 @@ class Chef
 
       property :raise_if_unsupported, [TrueClass, FalseClass],
         description: "Raise a hard error on platforms where this resource is unsupported.",
+        introduced: "15.5",
         default: false, desired_state: false # FIXME: make this default to true
 
-      action :install do
-
-        description "Install build essential packages"
-
+      action :install, description: "Install build essential packages" do
         case
         when debian?
           package %w{ autoconf binutils-doc bison build-essential flex gettext ncurses-dev }
@@ -119,15 +119,14 @@ class Chef
         end
       end
 
-      action :upgrade do
-        description "Upgrade build essential (Xcode Command Line) tools on macOS"
+      action :upgrade, description: "Upgrade the Xcode CLI Tools on macOS hosts. **New in Chef Infra Client 16**" do
 
         if macos?
           pkg_label = xcode_cli_package_label
 
           # With upgrade action we should install if it's not installed or if there's an available update.
-          # `xcode_cli_package_label` will be nil if there's no update.
-          install_xcode_cli_tools(pkg_label) if !xcode_cli_installed? || xcode_cli_package_label
+          # `pkg_label` will be nil if there's no update.
+          install_xcode_cli_tools(pkg_label) if !xcode_cli_installed? || pkg_label
         else
           Chef::Log.info "The build_essential resource :upgrade action is only supported on macOS systems. Skipping..."
         end
@@ -142,8 +141,8 @@ class Chef
         def install_xcode_cli_tools(label)
           # This script was graciously borrowed and modified from Tim Sutton's
           # osx-vm-templates at https://github.com/timsutton/osx-vm-templates/blob/b001475df54a9808d3d56d06e71b8fa3001fff42/scripts/xcode-cli-tools.sh
-          execute "install Xcode Command Line tools" do
-            command <<-EOH
+          bash "install Xcode Command Line Tools" do
+            code <<-EOH
               # create the placeholder file that's checked by CLI updates' .dist code
               # in Apple's SUS catalog
               touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
@@ -156,14 +155,12 @@ class Chef
         end
 
         #
-        # Determine if the XCode Command Line Tools are installed by parsing the install history plist.
-        # We parse the plist data install of running pkgutil because we found that pkgutils doesn't always contain all the packages
+        # Determine if the XCode Command Line Tools are installed by checking
+        # for success from `xcode-select -p`
         #
         # @return [true, false]
         def xcode_cli_installed?
-          packages = ::Plist.parse_xml(::File.open("/Library/Receipts/InstallHistory.plist", "r"))
-          packages.select! { |package| package["displayName"].match? "Command Line Tools" }
-          !packages.empty?
+          !shell_out("xcode-select", "-p").error?
         end
 
         #

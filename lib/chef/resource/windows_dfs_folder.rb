@@ -21,9 +21,11 @@ require_relative "../resource"
 class Chef
   class Resource
     class WindowsDfsFolder < Chef::Resource
+      unified_mode true
+
       provides :windows_dfs_folder
 
-      description "The windows_dfs_folder resources creates a folder within dfs as many levels deep as required."
+      description "Use the **windows_dfs_folder** resource to creates a folder within DFS as many levels deep as required."
       introduced "15.0"
 
       property :folder_path, String,
@@ -40,9 +42,7 @@ class Chef
       property :description, String,
         description: "Description for the share."
 
-      action :create do
-        description "Creates the folder in dfs namespace."
-
+      action :create, description: "Creates the folder in dfs namespace" do
         raise "target_path is required for install" unless property_is_set?(:target_path)
         raise "description is required for install" unless property_is_set?(:description)
 
@@ -60,9 +60,7 @@ class Chef
         end
       end
 
-      action :delete do
-        description "Deletes the folder in the dfs namespace."
-
+      action :delete, description: "Deletes the folder in the dfs namespace" do
         powershell_script "Delete DFS Namespace" do
           code <<-EOH
             Remove-DfsnFolder -Path '\\\\#{ENV["COMPUTERNAME"]}\\#{new_resource.namespace_name}\\#{new_resource.folder_path}' -Force

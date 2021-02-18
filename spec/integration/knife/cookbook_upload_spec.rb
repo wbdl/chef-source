@@ -25,7 +25,7 @@ describe "knife cookbook upload", :workstation do
 
   include_context "default config options"
 
-  let (:cb_dir) { "#{@repository_dir}/cookbooks" }
+  let(:cb_dir) { "#{@repository_dir}/cookbooks" }
 
   when_the_chef_server "is empty" do
     when_the_repository "has a cookbook" do
@@ -96,6 +96,33 @@ describe "knife cookbook upload", :workstation do
       it "knife cookbook upload x " do
         expect { knife("cookbook upload x -o #{cb_dir}") }.to raise_error(Chef::Exceptions::MetadataNotValid)
       end
+    end
+
+    when_the_repository "has cookbooks at multiple paths" do
+
+      let(:cb_dir_first) do
+        File.join(@repository_dir, "cookbooks")
+          .gsub(File::SEPARATOR, File::ALT_SEPARATOR || File::SEPARATOR)
+      end
+
+      let(:cb_dir_second) do
+        File.join(@repository_dir, "test_cookbooks")
+          .gsub(File::SEPARATOR, File::ALT_SEPARATOR || File::SEPARATOR)
+      end
+
+      before(:each) do
+        file "cookbooks/x/metadata.rb", cb_metadata("x", "1.0.0")
+        file "test_cookbooks/y/metadata.rb", cb_metadata("y", "1.0.0")
+      end
+
+      it "knife cookbook upload with -o or --cookbook-path" do
+        knife("cookbook upload x y -o #{cb_dir_first}#{File::PATH_SEPARATOR}#{cb_dir_second}").should_succeed stderr: <<~EOM
+          Uploading x            [1.0.0]
+          Uploading y            [1.0.0]
+          Uploaded 2 cookbooks.
+        EOM
+      end
+
     end
   end
 end

@@ -129,6 +129,7 @@ shared_context "a client run" do
     expect(client.events).to receive(:register).with(instance_of(Chef::DataCollector::Reporter))
     expect(client.events).to receive(:register).with(instance_of(Chef::ResourceReporter))
     expect(client.events).to receive(:register).with(instance_of(Chef::ActionCollection))
+    expect(client.events).to receive(:register).with(instance_of(Chef::Compliance::Runner))
   end
 
   def stub_for_node_load
@@ -351,7 +352,7 @@ describe Chef::Client do
   describe "configuring output formatters" do
     context "when no formatter has been configured" do
       it "configures the :doc formatter" do
-        expect(client.formatters_for_run).to eq([[:doc]])
+        expect(client.formatters_for_run).to eq([[:doc, nil]])
       end
 
       context "and force_logger is set" do
@@ -370,7 +371,7 @@ describe Chef::Client do
         end
 
         it "configures the :doc formatter" do
-          expect(client.formatters_for_run).to eq([[:doc]])
+          expect(client.formatters_for_run).to eq([[:doc, nil]])
         end
       end
 
@@ -381,7 +382,7 @@ describe Chef::Client do
         end
 
         it "configures the :doc formatter" do
-          expect(client.formatters_for_run).to eq([[:doc]])
+          expect(client.formatters_for_run).to eq([[:doc, nil]])
         end
       end
     end
@@ -749,9 +750,12 @@ describe Chef::Client do
 
     context "when any directory of cookbook_path contains no cookbook" do
       it "raises CookbookNotFound error" do
+        invalid_cookbook_path = windows? ? "C:/path/to/invalid/cookbook_path" : "/path/to/invalid/cookbook_path"
+        msg = "None of the cookbook paths set in Chef::Config[:cookbook_path], [\"#{invalid_cookbook_path}\"], contain any cookbooks"
+
         expect do
           client.send(:assert_cookbook_path_not_empty, nil)
-        end.to raise_error(Chef::Exceptions::CookbookNotFound, 'None of the cookbook paths set in Chef::Config[:cookbook_path], ["/path/to/invalid/cookbook_path"], contain any cookbooks')
+        end.to raise_error(Chef::Exceptions::CookbookNotFound, msg)
       end
     end
   end
@@ -796,6 +800,22 @@ describe Chef::Client do
     before do
       # fail on the first thing in begin block
       allow_any_instance_of(Chef::RunLock).to receive(:save_pid).and_raise(NoMethodError)
+    end
+  end
+
+  describe "deprecated enforce_path_sanity" do
+    include_context "a client run"
+    include_context "converge completed"
+
+    it "print a warning, when enforce_path_sanity is passed" do
+      Chef::Config[:enforce_path_sanity] = true
+      expect(logger).to receive(:warn).with("`enforce_path_sanity` is deprecated, please use `enforce_default_paths` instead!")
+      client.run
+    end
+
+    it "should not print a warning, when enforce_path_sanity is not passed" do
+      expect(logger).not_to receive(:warn).with("`enforce_path_sanity` is deprecated, please use `enforce_default_paths` instead!")
+      client.run
     end
   end
 end

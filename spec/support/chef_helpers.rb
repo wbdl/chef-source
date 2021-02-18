@@ -14,20 +14,12 @@
 # limitations under the License.
 #
 
-CHEF_SPEC_DATA = File.expand_path(File.dirname(__FILE__) + "/../data/")
-CHEF_SPEC_ASSETS = File.expand_path(File.dirname(__FILE__) + "/../functional/assets/")
+CHEF_SPEC_DATA = File.expand_path(__dir__ + "/../data/")
+CHEF_SPEC_ASSETS = File.expand_path(__dir__ + "/../functional/assets/")
 CHEF_SPEC_BACKUP_PATH = File.join(Dir.tmpdir, "test-backup-path")
 
-Chef::Config[:log_level] = :fatal
-Chef::Config[:persistent_queue] = false
-Chef::Config[:file_backup_path] = CHEF_SPEC_BACKUP_PATH
-
-Chef::Log.init(StringIO.new)
-Chef::Log.level(Chef::Config.log_level)
-Chef::Config.solo(false)
-
 def sha256_checksum(path)
-  OpenSSL::Digest::SHA256.hexdigest(File.read(path))
+  OpenSSL::Digest.hexdigest("SHA256", File.read(path))
 end
 
 # extracted from Ruby < 2.5 to return a unique temp file name without creating it
@@ -46,33 +38,6 @@ def make_tmpname(prefix_suffix, n = nil)
   path = "#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}"
   path << "-#{n}" if n
   path << suffix
-end
-
-# NOTE:
-# This is a temporary fix to get tests passing on systems that have no `diff`
-# until we can replace shelling out to `diff` with ruby diff-lcs
-def has_diff?
-  diff_cmd = Mixlib::ShellOut.new("diff -v")
-  diff_cmd.run_command
-  true
-rescue Errno::ENOENT
-  false
-end
-
-# This is a helper to determine if the ruby in the PATH contains
-# win32/service gem. windows_service_manager tests create a windows
-# service that starts with the system ruby and requires this gem.
-def system_windows_service_gem?
-  windows_service_gem_check_command = %{ruby -r "win32/daemon" -e ":noop" > #{DEV_NULL} 2>&1}
-  if defined?(Bundler)
-    Bundler.with_unbundled_env do
-      # This returns true if the gem can be loaded
-      system(windows_service_gem_check_command)
-    end
-  else
-    # This returns true if the gem can be loaded
-    system(windows_service_gem_check_command)
-  end
 end
 
 # This is a helper to canonicalize paths that we're using in the file

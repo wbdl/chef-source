@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 #
 # Copyright:: Copyright (c) Chef Software Inc.
 # License:: Apache License, Version 2.0
@@ -301,7 +302,7 @@ module ChefUtils
       end
 
       # RedHat distros -- fedora and rhel platform_families, nothing else. This is most likely not as useful as the
-      # "fedora_dervied?" helper.
+      # "fedora_derived?" helper.
       #
       # @param [Chef::Node] node the node to check
       # @since 15.5
@@ -320,7 +321,7 @@ module ChefUtils
       # @return [Boolean]
       #
       def solaris_based?(node = __getnode)
-        %w{solaris2 smartos omnios openindiana opensolaris nexentacore}.include?(node["platform"])
+        %w{solaris2 smartos omnios openindiana}.include?(node["platform"])
       end
 
       # All of the BSD-lineage.

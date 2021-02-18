@@ -28,7 +28,7 @@ require_relative "../run_list/run_list_expansion"
 require_relative "../formatters/base"
 require_relative "../formatters/doc"
 require_relative "../formatters/minimal"
-require_relative "../dist"
+require "chef-utils/dist" unless defined?(ChefUtils::Dist)
 
 module Shell
   class ShellSession
@@ -41,6 +41,7 @@ module Shell
 
     attr_accessor :node, :compile, :recipe, :json_configuration
     attr_reader :node_attributes, :client
+
     def initialize
       @node_built = false
       formatter = Chef::Formatters.new(Chef::Config.formatter, STDOUT, STDERR)
@@ -75,6 +76,7 @@ module Shell
     end
 
     attr_writer :run_context
+
     def run_context
       @run_context ||= rebuild_context
     end
@@ -88,7 +90,7 @@ module Shell
     end
 
     def save_node
-      raise "Not Supported! #{self.class.name} doesn't support #save_node, maybe you need to run #{Chef::Dist::SHELL} in client mode?"
+      raise "Not Supported! #{self.class.name} doesn't support #save_node, maybe you need to run #{ChefUtils::Dist::Infra::SHELL} in client mode?"
     end
 
     def rebuild_context
