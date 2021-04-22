@@ -2,6 +2,7 @@ require "fcntl"
 require "chef/mixin/shell_out"
 require "ohai/mixin/http_helper"
 require "ohai/mixin/gce_metadata"
+require "spec/support/chef_helpers"
 
 class ShellHelpers
   extend Chef::Mixin::ShellOut
@@ -112,6 +113,10 @@ end
 
 def macos?
   RUBY_PLATFORM.include?("darwin")
+end
+
+def macos_gte_11?
+  macos? && !!(ohai[:platform_version].to_i >= 11)
 end
 
 def solaris?

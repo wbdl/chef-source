@@ -4,15 +4,14 @@ This file holds "in progress" release notes for the current release under develo
 
 This section serves to track things we should later document here for 17.0
 
-- Dropped support for Ruby 2.6
+- Chef Infra Client now ships with Ruby 3
 - Compliance Phase in GA: https://github.com/chef/chef/pull/10547
-- remove support for RHEL 6 i386 / Ubuntu 16.04 / macOS 10.13
+- remove support for RHEL 6 i386
 - Compliance cli report - https://github.com/chef/chef/pull/10939
 - Remove ability to run client as a service on Windows - https://github.com/chef/chef/pull/10928
-- macOS builds now use openSSL 1.1.1
 - Knife Org commands from knife-opc are now part of chef itself - https://github.com/chef/chef/pull/10187
 - Chef packages on *nix now create the /etc/chef directory and subdirectories to make getting started easier - https://github.com/chef/chef/pull/11158 / https://github.com/chef/chef/pull/11173
-- macOS m1 packages are now built - https://github.com/chef/chef/pull/11138
+- lpar_no and wpar_no in AIX Virtualization plugin are now Integers - https://github.com/chef/ohai/pull/1647
 
 ### Infra Language Improvements
 
@@ -29,20 +28,135 @@ This section serves to track things we should later document here for 17.0
 - Resolve potential failures in chef_client_launchd and macosx_service - https://github.com/chef/chef/pull/11154
 - Improved performance in systemd_unit resource - https://github.com/chef/chef/pull/10925
 - gem resource: assume rubygems 1.8+ now: https://github.com/chef/chef/pull/10379
-- file: only run verifiers when the contents changed - https://github.com/chef/chef/pull/11171
 - execute: Add login property - https://github.com/chef/chef/pull/11201
 
 ### Ohai
 
-- Ohai now detects systems running in the Effortless pattern at `node['chef_packages']['chef']['chef_effortless']` - https://github.com/chef/ohai/pull/1624
 - New Ohai habitat plugin at `node['habitat']` - https://github.com/chef/ohai/pull/1623
-- Detect Sangoma Linux in Ohai - https://github.com/chef/ohai/pull/1631
-- Gather additional package information on Windows - https://github.com/chef/ohai/pull/1616
 - Detect guests running in Podman - https://github.com/chef/ohai/pull/1617
-- Improved Docker container detection - https://github.com/chef/ohai/pull/1627
 - don't write out node['filesystem2'] data on AIX/Solaris/FreeBSD: https://github.com/chef/ohai/pull/1592
 - Alibaba Cloud support with node['alibaba'] showing metadata, `alibaba?` helper and node['cloud'] returning data now - https://github.com/chef/chef/pull/11004
 - Removed detection of discontinued antergos and Pidora distros - https://github.com/chef/ohai/pull/1633 / https://github.com/chef/ohai/pull/1634
+
+## What's New in 16.13
+
+### Chef InSpec 4.31
+
+Chef InSpec has been updated from 4.29.3 to 4.31.1.
+
+#### New Features
+
+- Commands can now be set to timeout using the [command resource](https://docs.chef.io/inspec/resources/command/) or the [`--command-timeout`](https://docs.chef.io/inspec/cli/) option in the CLI. Commands timeout by default after one hour.
+- Added the [`--docker-url`](https://docs.chef.io/inspec/cli/) CLI option, which can be used to specify the URI to connect to the Docker Engine.
+- Added support for targeting Linux and Windows containers running on Docker for Windows.
+
+#### Bug Fixes
+
+- Hash inputs will now be loaded consistently and accessed as strings or symbols. ([#5446](https://github.com/inspec/inspec/pull/5446))
+
+### Ubuntu FIPS Support
+
+Our Ubuntu packages are now FIPS compliant for all your FedRAMP needs.
+
+### Chef Language Additions
+
+We now include a `centos_stream_platform?` helper to determine if your CentOS release is a standard [CentOS](https://www.centos.org/centos-linux/) release or a [CentOS Stream](https://www.centos.org/centos-stream/) release. This helper can be used in attributes files, recipes, and custom resources. Thanks for this new helper [@ramereth](https://github.com/ramereth)!
+
+### Resource Improvements
+
+#### dsc_script and dsc_resource
+
+Our PowerShell integration has been improved to better handle failures that were silently occurring when running some DSC code in Chef Infra Client 16.8 and later. Thanks for reporting this problem [@jeremyciak](https://github.com/jeremyciak)!
+
+### Platform Support Updates
+
+#### Ubuntu 16.04 EOL
+
+Packages will no longer be built for Ubuntu 16.04 as Canonical ended maintenance updates on April 30, 2021. See Chef's [Platform End-of-Life Policy](https://docs.chef.io/platforms/#platform-end-of-life-policy) for more information on when Chef ends support for an OS release.
+
+### Improved System Detection
+
+Ohai now includes a new `:OsRelease` plugin for Linux hosts that includes the content of `/etc/os_release`. This data can be very useful for accurately identifying the Linux distribution that Chef Infra Client is running on. Thanks for this new plugin [@ramereth](https://github.com/ramereth)!
+
+#### Sample `:OsRelease` Output
+
+```json
+{
+  "name": "Ubuntu",
+  "version": "18.04.5 LTS (Bionic Beaver)",
+  "id": "ubuntu",
+  "id_like": [
+    "debian"
+  ],
+  "pretty_name": "Ubuntu 18.04.5 LTS",
+  "version_id": "18.04",
+  "home_url": "https://www.ubuntu.com/",
+  "support_url": "https://help.ubuntu.com/",
+  "bug_report_url": "https://bugs.launchpad.net/ubuntu/",
+  "privacy_policy_url": "https://www.ubuntu.com/legal/terms-and-policies/privacy-policy",
+  "version_codename": "bionic",
+  "ubuntu_codename": "bionic"
+}
+```
+
+### Security
+
+#### Ruby 2.7.3
+
+Ruby has been updated to 2.7.3, which provides a large number of bug fixes and also resolves the following CVEs:
+
+- [CVE-2021-28966](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-28966)
+- [CVE-2021-28966](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-28966)
+
+## What's New in 16.12
+
+### Chef InSpec 4.29
+
+Chef InSpec has been updated from 4.28 to 4.29.3.
+
+#### New Features
+
+- The JSON metadata pass through configuration has been moved from the Automate reporter to the JSON Reporter. ([#5430](https://github.com/inspec/inspec/pull/5430))
+
+#### Bug Fixes
+
+- The apt resource now correctly fetches all package repositories using the `-name` flag in an environment where ZSH is the user's default shell.  ([#5437](https://github.com/inspec/inspec/pull/5437))
+- Updates how InSpec profiles are created with GCP or AWS providers so they use `inputs` instead of `attributes`. ([#5435](https://github.com/inspec/inspec/pull/5435))
+
+### Resource Improvements
+
+#### service and chef_client_launchd
+
+The `service` and `chef_client_launchd` resources on macOS now use the full path to `launchctl` to avoid potential failures. Thanks [@krackajak](https://github.com/krackajak)!
+
+#### file
+
+Verifiers in the `file` resource are only run if the content actually changes. This can significantly speed execution of Chef Infra Client when no actual changes occur. Thanks [@joshuamiller01](https://github.com/joshuamiller01)!
+
+#### mount
+
+The mount resource now properly handles NFS mounts with a root of `/`. Thanks for reporting this [@eheydrick](https://github.com/eheydrick) and thanks for the fix [@ramereth](https://github.com/ramereth)!
+
+### powershell_script and dsc_script
+
+Our embedded PowerShell libraries have been updated for improved execution of PowerShell and DSC code on Windows systems.
+
+### Improved System Detection
+
+Ohai has been updated to better detect system configuration details:
+
+- Ohai now detects Chef Infra Clients running in the Effortless pattern at `node['chef_packages']['chef']['chef_effortless']`.
+- Windows packages installed for the current user are now detected in addition to system wide package installations. Thanks [@jaymzh](https://github.com/jaymzh)!
+- `Sangoma Linux` is now detected as part of the `rhel` platform family. Thanks [@hron84](https://github.com/hron84)!
+- Docker is now properly detected even if it's running on a virtualized system. Thanks [@jaymzh](https://github.com/jaymzh)!
+- Alibaba Cloud Linux is now detected as platform `alibabalinux` and platform family `rhel`.
+
+### Security
+
+Upgraded OpenSSL on macOS hosts to 1.1.1k, which resolves the following CVEs:
+
+- [CVE-2021-3450](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3450)
+- [CVE-2021-3449](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3449)
 
 ## What's New in 16.11.7
 
@@ -1504,6 +1618,33 @@ Several legacy Windows helpers have been deprecated as they will always return t
 - Chef::Platform.supports_powershell_execution_bypass?
 - Chef::Platform.windows_nano_server?
 
+## What's new in 15.17
+
+### Chef InSpec 4.32
+
+Updated Chef InSpec from 4.29.3 to 4.32.
+
+#### New Features
+
+- Commands can now be set to timeout using the [command resource](https://docs.chef.io/inspec/resources/command/) or the [`--command-timeout`](https://docs.chef.io/inspec/cli/) option in the CLI. Commands timeout by default after one hour.
+- Added the [`--docker-url`](https://docs.chef.io/inspec/cli/) CLI option, which can be used to specify the URI to connect to the Docker Engine.
+- Added support for targeting Linux and Windows containers running on Docker for Windows.
+- Added ability to pass inputs to InSpec shell using input file and cli. For more information, see [How can I set Inputs?](https://docs.chef.io/inspec/inputs/#how-can-i-set-inputs) in the InSpec documentation.
+
+#### Bug Fixes
+
+- Hash inputs will now be loaded consistently and accessed as strings or symbols. ([#5446](https://github.com/inspec/inspec/pull/5446))
+
+### Security
+
+#### Ruby
+
+We updated Ruby from 2.6.6 to 2.6.7 to resolve a large number of bugs as well as the following CVEs:
+
+- [CVE-2021-28966](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-28966)
+- [CVE-2021-28965](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-28965)
+- [CVE-2020-25613](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-25613)
+
 ## What's new in 15.16
 
 ### Fixes and Improvements
@@ -1514,7 +1655,7 @@ Several legacy Windows helpers have been deprecated as they will always return t
 - Improved handling of WinRM connections when bootstrapping Windows nodes.
 - Switched docker containers back to EL6 packages to prevent failures running the containers with Kitchen Dokken to test RHEL 6 systems.
 - Fixed non-0 exit codes in the Yum and DNF helper scripts which caused errors in system logs.
-- Fixed package failures in FreeBSD due to changed in `pkgng` exit codes.
+- Fixed package failures in FreeBSD due to changes in `pkgng` exit codes.
 - Added support for `client.d` configuration files in `chef-shell`.
 
 ### Chef InSpec
@@ -1540,7 +1681,7 @@ Chef InSpec has been updated from 4.24.8 to 4.29.3.
 - The `apt` resource now correctly fetches all package repositories using the `-name` flag in an environment where ZSH is the user's default shell.
 - The `--controls` option in `inspec exec` now correctly filters the controls by name.
 - Updates how InSpec profiles are created with GCP or AWS providers so they use `inputs` instead of `attributes`.
-- `inspec exec` will now fetch profiles via Git regardless of the name of the default branch.rces now correctly use the first value when a setting is repeated.
+- `inspec exec` will now fetch profiles via Git regardless of the name of the default branches now correctly use the first value when a setting is repeated.
 - Updated the `oracledb_session` to use more general invocation options. Thanks [@pacopal](https://github.com/pacopal)!
 - Fixed an error with the `http` resource in Chef Infra Client by including `faraday_middleware` in the gemspec.
 - Fixed an incompatibility between `parslet` and `toml` in Chef Infra Client.

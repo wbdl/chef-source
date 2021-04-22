@@ -1,17 +1,64 @@
 <!-- usage documentation: http://expeditor-docs.es.chef.io/configuration/changelog/ -->
 This changelog lists individual merged pull requests to Chef Infra Client and geared towards developers. For a list of significant changes per release see the [Chef Infra Client Release Notes](https://docs.chef.io/release_notes_client/).
 
-<!-- latest_release 17.0.176 -->
-## [v17.0.176](https://github.com/chef/chef/tree/v17.0.176) (2021-03-29)
+<!-- latest_release 17.0.222 -->
+## [v17.0.222](https://github.com/chef/chef/tree/v17.0.222) (2021-04-22)
 
 #### Merged Pull Requests
-- Fix idempotency issues with network mounts [#11261](https://github.com/chef/chef/pull/11261) ([ramereth](https://github.com/ramereth))
+- Produce packages for FreeBSD 13 [#11424](https://github.com/chef/chef/pull/11424) ([tas50](https://github.com/tas50))
 <!-- latest_release -->
 
 <!-- release_rollup since=16.8.14 -->
 ### Changes not yet released to stable
 
 #### Merged Pull Requests
+- Produce packages for FreeBSD 13 [#11424](https://github.com/chef/chef/pull/11424) ([tas50](https://github.com/tas50)) <!-- 17.0.222 -->
+- Lock cheffish to 17 [#11420](https://github.com/chef/chef/pull/11420) ([lamont-granquist](https://github.com/lamont-granquist)) <!-- 17.0.221 -->
+-  Replace the ChefFS parallelizer with parallel_map helper [#11397](https://github.com/chef/chef/pull/11397) ([lamont-granquist](https://github.com/lamont-granquist)) <!-- 17.0.220 -->
+- Bump omnibus-software from `0dcaeb1` to `3ac1dbe` in /omnibus [#11408](https://github.com/chef/chef/pull/11408) ([dependabot-preview[bot]](https://github.com/dependabot-preview[bot])) <!-- 17.0.219 -->
+- Bump omnibus from `dd57896` to `79c80e0` in /omnibus [#11410](https://github.com/chef/chef/pull/11410) ([dependabot-preview[bot]](https://github.com/dependabot-preview[bot])) <!-- 17.0.218 -->
+- Bump inspec-core-bin to 4.33.1 [#11413](https://github.com/chef/chef/pull/11413) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.217 -->
+- Revert &quot;Bump omnibus-software from `0dcaeb1` to `810a6c4` in /omnibus&quot; [#11403](https://github.com/chef/chef/pull/11403) ([nikhil2611](https://github.com/nikhil2611)) <!-- 17.0.216 -->
+- Move most compliance validation to pre-run [#11377](https://github.com/chef/chef/pull/11377) ([marcparadise](https://github.com/marcparadise)) <!-- 17.0.215 -->
+- Update the download URL for windows msi [#11400](https://github.com/chef/chef/pull/11400) ([marcparadise](https://github.com/marcparadise)) <!-- 17.0.214 -->
+- Bump chef/ohai to 2a0da607d2d80c74adb9798c3bae1d2702ba05fd [#11399](https://github.com/chef/chef/pull/11399) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.213 -->
+- Update tests to handle local omnibus packages from Buildkite artifacts api [#11382](https://github.com/chef/chef/pull/11382) ([nkierpiec](https://github.com/nkierpiec)) <!-- 17.0.212 -->
+- Bump omnibus-software from `0dcaeb1` to `810a6c4` in /omnibus [#11396](https://github.com/chef/chef/pull/11396) ([dependabot-preview[bot]](https://github.com/dependabot-preview[bot])) <!-- 17.0.211 -->
+- Bump chef/ohai to 44f23f01752a95b3b93b710f9510806b781f8635 [#11392](https://github.com/chef/chef/pull/11392) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.210 -->
+- Bump chef/chefstyle to 2c32688dc259423c328ccc2cf6b9f3b1bb3cb0a5 [#11391](https://github.com/chef/chef/pull/11391) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.209 -->
+- Bump tty-prompt to 0.23.1 [#11389](https://github.com/chef/chef/pull/11389) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.208 -->
+- Bump chef/ohai to db08809916c84e74ec914bab3d313ec9dfc10195 [#11379](https://github.com/chef/chef/pull/11379) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.207 -->
+- Add problem matchers for our Chefstyle run in GH [#11374](https://github.com/chef/chef/pull/11374) ([tas50](https://github.com/tas50)) <!-- 17.0.206 -->
+- Test running spellcheck in Github Actions [#11373](https://github.com/chef/chef/pull/11373) ([tas50](https://github.com/tas50)) <!-- 17.0.205 -->
+- Move some testing to GitHub Actions [#11364](https://github.com/chef/chef/pull/11364) ([tas50](https://github.com/tas50)) <!-- 17.0.205 -->
+- Use new_resource for load_current_value blocks [#11368](https://github.com/chef/chef/pull/11368) ([jasonwbarnett](https://github.com/jasonwbarnett)) <!-- 17.0.205 -->
+- Allow FIPS 140-2 OpenSSL FOM to build on PPC EL platforms [#11358](https://github.com/chef/chef/pull/11358) ([btm](https://github.com/btm)) <!-- 17.0.204 -->
+- Bump inspec to 4.31.1 and ohai to 17.0.34 [#11353](https://github.com/chef/chef/pull/11353) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.203 -->
+- Use dist constants in rubygems provider for is_omnibus? method [#11326](https://github.com/chef/chef/pull/11326) ([ramereth](https://github.com/ramereth)) <!-- 17.0.202 -->
+- Knife user create to work with only username and options --email and … [#11224](https://github.com/chef/chef/pull/11224) ([msys-sgarg](https://github.com/msys-sgarg)) <!-- 17.0.201 -->
+- Produce FIPS builds on Ubuntu as well [#11339](https://github.com/chef/chef/pull/11339) ([tas50](https://github.com/tas50)) <!-- 17.0.200 -->
+- Ruby-3.0 builds [#11336](https://github.com/chef/chef/pull/11336) ([lamont-granquist](https://github.com/lamont-granquist)) <!-- 17.0.198 -->
+- Add centos_stream_platform? helper [#11296](https://github.com/chef/chef/pull/11296) ([ramereth](https://github.com/ramereth)) <!-- 17.0.197 -->
+- Fix failing Fauxhai related specs [#11329](https://github.com/chef/chef/pull/11329) ([tas50](https://github.com/tas50)) <!-- 17.0.196 -->
+- fix powershell exec segfaults on DSC_Resource [#11330](https://github.com/chef/chef/pull/11330) ([mwrock](https://github.com/mwrock)) <!-- 17.0.195 -->
+- Bump fauxhai-ng to 9.0.0 and InSpec to 4.31 [#11325](https://github.com/chef/chef/pull/11325) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.194 -->
+- Bump omnibus-software from `ef7b496` to `56f6321` in /omnibus [#11323](https://github.com/chef/chef/pull/11323) ([dependabot-preview[bot]](https://github.com/dependabot-preview[bot])) <!-- 17.0.193 -->
+- Bump train-core to 3.6.0 [#11319](https://github.com/chef/chef/pull/11319) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.192 -->
+- Bump omnibus-software from `3d331d8` to `ef7b496` in /omnibus [#11318](https://github.com/chef/chef/pull/11318) ([dependabot-preview[bot]](https://github.com/dependabot-preview[bot])) <!-- 17.0.191 -->
+- Bump chef/ohai to 4aa4f09fdddbe5ecf212ce16c06cd1d105650298 [#11312](https://github.com/chef/chef/pull/11312) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.190 -->
+- Bump omnibus-software from `f745eed` to `3d331d8` in /omnibus [#11310](https://github.com/chef/chef/pull/11310) ([dependabot-preview[bot]](https://github.com/dependabot-preview[bot])) <!-- 17.0.189 -->
+- Bump omnibus-software from `76b31d1` to `f745eed` in /omnibus [#11302](https://github.com/chef/chef/pull/11302) ([dependabot-preview[bot]](https://github.com/dependabot-preview[bot])) <!-- 17.0.188 -->
+- Bump chef/ohai to 426f5852142dd9b0fa36057c838db56bc36ed8f1 [#11304](https://github.com/chef/chef/pull/11304) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.187 -->
+- Added new property fqdn and made sure hosts entry includes the same [#11273](https://github.com/chef/chef/pull/11273) ([msys-sgarg](https://github.com/msys-sgarg)) <!-- 17.0.186 -->
+- Fix the cron skip on macOS logic [#11297](https://github.com/chef/chef/pull/11297) ([tas50](https://github.com/tas50)) <!-- 17.0.185 -->
+- Update openSSL on macOS to 1.1.1k [#11295](https://github.com/chef/chef/pull/11295) ([tas50](https://github.com/tas50)) <!-- 17.0.184 -->
+- Report compliance runner not enabled if the node is not available [#11290](https://github.com/chef/chef/pull/11290) ([marcparadise](https://github.com/marcparadise)) <!-- 17.0.183 -->
+- Skip the cron tests on macOS 11+ [#11291](https://github.com/chef/chef/pull/11291) ([tas50](https://github.com/tas50)) <!-- 17.0.182 -->
+- Bump chef/ohai to 2fc35fbcbcfe7e2f3dad8f425d8307a6f216d011 [#11283](https://github.com/chef/chef/pull/11283) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.181 -->
+- Bump cheffish to 16.0.26 [#11276](https://github.com/chef/chef/pull/11276) ([chef-expeditor[bot]](https://github.com/chef-expeditor[bot])) <!-- 17.0.180 -->
+- Remove more redundant begins detected by rubocop [#11220](https://github.com/chef/chef/pull/11220) ([tas50](https://github.com/tas50)) <!-- 17.0.179 -->
+- Convert knife to its own gem [#11180](https://github.com/chef/chef/pull/11180) ([marcparadise](https://github.com/marcparadise)) <!-- 17.0.178 -->
+- Bump omnibus-software from `caf6ae0` to `a0e7438` in /omnibus [#11270](https://github.com/chef/chef/pull/11270) ([dependabot-preview[bot]](https://github.com/dependabot-preview[bot])) <!-- 17.0.177 -->
 - Fix idempotency issues with network mounts [#11261](https://github.com/chef/chef/pull/11261) ([ramereth](https://github.com/ramereth)) <!-- 17.0.176 -->
 - bump powershell shim to 0.3.2 with powershell 7.1.3 deps [#11262](https://github.com/chef/chef/pull/11262) ([mwrock](https://github.com/mwrock)) <!-- 17.0.175 -->
 - Fix windows_user password idempotency [#11233](https://github.com/chef/chef/pull/11233) ([jaymzh](https://github.com/jaymzh)) <!-- 17.0.174 -->
